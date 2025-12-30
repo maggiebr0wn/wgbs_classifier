@@ -1,0 +1,36 @@
+# Data files (too large)
+data/raw/
+data/processed/
+
+# Results (reproducible from code)
+results/
+
+# Models (binary, reproducible)
+models/*.pkl
+models/*.joblib
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+venv/
+env/
+.env

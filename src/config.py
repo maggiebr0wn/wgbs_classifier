@@ -3,6 +3,7 @@ Configuration file for wgbs_classifier pipeline.
 Contains paths, constants, and filtering parameters.
 """
 
+import re
 from pathlib import Path
 
 # ============================================================================
@@ -30,8 +31,9 @@ Output:
 """
 
 # Input paths
-METADATA_FILE = PROJECT_ROOT / "data" / "metadata" / "sample_metadata.csv"
+METADATA_FILE = PROJECT_ROOT / "data" / "metadata" / "celfie_cfDNA_ss.csv"
 BAM_DIR = PROJECT_ROOT / "data" / "raw"
+BAM_PATTERN = r"^{run_id}.*\.bam$"  # Will be formatted with actual run_id
 
 # Output paths
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"

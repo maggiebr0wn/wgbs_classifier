@@ -81,7 +81,43 @@ QC_SAMPLE_SIZE = 10000  # Number of reads to sample for conversion check
 # ============================================================================
 # MODULE 2: Feature Extraction
 # ============================================================================
-# (Will be added later)
+"""
+Module 2 Overview:
+    - Extract fragment size features (full distributions, size bins)
+    - Extract fragment start/end positions across chr21
+    - Extract end motif features (4-mer frequencies from read ends)
+    - Extract methylation features (CpG methylation from XM tags)
+    
+Input:
+    - sample_manifest.csv from Module 0
+    - BAM files
+    
+Output:
+    - all_features.csv in data/processed/
+    - Individual feature files for inspection
+"""
+
+# Feature extraction parameters
+KMER_SIZE = 4  # Size of k-mers for end motif analysis (4-mers = 256 features)
+
+# Fragment size bins for feature engineering
+FRAGMENT_SIZE_BINS = {
+    'very_short': (50, 100),      # < 100 bp
+    'short': (100, 150),          # 100-150 bp
+    'nucleosomal': (150, 200),    # 150-200 bp (mono-nucleosome)
+    'dinucleosomal': (200, 400),  # 200-400 bp (di-nucleosome)
+    'long': (400, 1000)           # > 400 bp
+}
+
+# Position binning (divide chr21 into bins for coverage features)
+N_POSITION_BINS = 100  # Number of bins to divide chromosome into
+
+# Output files
+FRAGMENT_FEATURES = PROCESSED_DIR / "fragment_features.csv"
+POSITION_FEATURES = PROCESSED_DIR / "position_features.csv"
+MOTIF_FEATURES = PROCESSED_DIR / "motif_features.csv"
+METHYLATION_FEATURES = PROCESSED_DIR / "methylation_features.csv"
+ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
 
 # ============================================================================

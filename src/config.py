@@ -43,7 +43,39 @@ SAMPLE_MANIFEST = PROCESSED_DIR / "sample_manifest.csv"
 # ============================================================================
 # MODULE 1: Quality Control & Filtering
 # ============================================================================
-# (Will be added later)
+"""
+Module 1 Overview:
+    - Calculate BAM-level statistics (reads, mapping quality, etc.)
+    - Check bisulfite conversion efficiency
+    - Assess batch effects on QC metrics
+    - Define filtering criteria for downstream analysis
+    
+Input:
+    - sample_manifest.csv from Module 0
+    - BAM files
+    
+Output:
+    - qc_metrics.csv in data/processed/
+    - qc_report.txt in results/
+    - QC plots in results/figures/qc/
+"""
+
+# Output paths
+RESULTS_DIR = PROJECT_ROOT / "results"
+FIGURES_DIR = RESULTS_DIR / "figures"
+QC_FIGURES_DIR = FIGURES_DIR / "qc"
+
+QC_METRICS = PROCESSED_DIR / "qc_metrics.csv"
+QC_REPORT = RESULTS_DIR / "qc_report.txt"
+
+# QC Parameters
+CHROMOSOME = "chr21"  # Chromosome to analyze
+MIN_MAPQ = 20  # Minimum mapping quality for filtering
+MIN_FRAGMENT_SIZE = 50  # Minimum fragment size (bp)
+MAX_FRAGMENT_SIZE = 1000  # Maximum fragment size (bp)
+BISULFITE_CONVERSION_THRESHOLD = 0.99  # Minimum conversion efficiency (99%)
+CHH_METHYLATION_THRESHOLD = 0.01  # Maximum CHH methylation (1%)
+QC_SAMPLE_SIZE = 10000  # Number of reads to sample for conversion check
 
 
 # ============================================================================

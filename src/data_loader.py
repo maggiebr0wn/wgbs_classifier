@@ -33,7 +33,7 @@ import pandas as pd
 from pathlib import Path
 
 # Import Module 0 configuration
-from config import (
+from src.config import (
     METADATA_FILE,
     BAM_DIR,
     BAM_PATTERN,

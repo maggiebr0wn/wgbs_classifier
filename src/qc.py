@@ -369,7 +369,7 @@ def assess_batch_effects(qc_df):
 
 def generate_qc_plots(qc_df, output_dir):
     """
-    Generate QC visualization plots.
+    Generate QC visualization plots with violin plots stratified by disease and batch.
     
     Parameters
     ----------
@@ -385,10 +385,11 @@ def generate_qc_plots(qc_df, output_dir):
     
     # Set style
     sns.set_style("whitegrid")
+    sns.set_palette("Set2")
     
-    # Plot 1: QC metrics by batch
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle('QC Metrics by Batch', fontsize=16, fontweight='bold')
+    # Plot 1: QC metrics stratified by BOTH disease and batch
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    fig.suptitle('QC Metrics by Disease Status and Batch', fontsize=16, fontweight='bold')
     
     metrics_to_plot = [
         ('mean_mapq', 'Mean MAPQ'),
@@ -402,13 +403,14 @@ def generate_qc_plots(qc_df, output_dir):
     for idx, (metric, label) in enumerate(metrics_to_plot):
         ax = axes[idx // 3, idx % 3]
         
-        if metric in qc_df.columns:
-            qc_df.boxplot(column=metric, by='batch', ax=ax)
-            ax.set_title(label)
-            ax.set_xlabel('Batch')
-            ax.set_ylabel(label)
-            plt.sca(ax)
-            plt.xticks(rotation=0)
+        if metric in qc_df.columns and qc_df[metric].notna().any():
+            sns.violinplot(data=qc_df, x='disease_status', y=metric, 
+                          hue='batch', ax=ax, inner='box', split=False)
+            ax.set_title(label, fontsize=12, fontweight='bold')
+            ax.set_xlabel('Disease Status', fontsize=10)
+            ax.set_ylabel(label, fontsize=10)
+            ax.tick_params(axis='x', rotation=0)
+            ax.legend(title='Batch', loc='best', fontsize=8)
         else:
             ax.text(0.5, 0.5, f'{metric}\nnot available', 
                    ha='center', va='center', transform=ax.transAxes)
@@ -416,53 +418,75 @@ def generate_qc_plots(qc_df, output_dir):
             ax.set_yticks([])
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'qc_metrics_by_batch.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / 'qc_metrics_disease_and_batch.png', dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"  ✓ Saved: qc_metrics_by_batch.png")
+    print(f"  ✓ Saved: qc_metrics_disease_and_batch.png")
     
-    # Plot 2: Conversion efficiency
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Plot 2: Conversion efficiency detail
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig.suptitle('Bisulfite Conversion Efficiency', fontsize=16, fontweight='bold')
     
     if 'conversion_efficiency' in qc_df.columns:
         qc_df['conversion_pct'] = qc_df['conversion_efficiency'] * 100
         
-        sns.barplot(data=qc_df, x='sample_id', y='conversion_pct', 
-                   hue='batch', ax=ax)
-        
-        # Add threshold line
+        # By disease status and batch
+        ax = axes[0]
+        sns.violinplot(data=qc_df, x='disease_status', y='conversion_pct', 
+                      hue='batch', ax=ax, inner='box')
         ax.axhline(y=BISULFITE_CONVERSION_THRESHOLD * 100, 
                   color='red', linestyle='--', linewidth=2,
                   label=f'Threshold ({BISULFITE_CONVERSION_THRESHOLD*100}%)')
+        ax.set_title('By Disease Status and Batch', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Disease Status', fontsize=10)
+        ax.set_ylabel('Conversion Efficiency (%)', fontsize=10)
+        ax.legend(title='', fontsize=9, loc='lower right')
         
-        ax.set_title('Bisulfite Conversion Efficiency by Sample', 
-                    fontsize=14, fontweight='bold')
-        ax.set_xlabel('Sample ID', fontsize=12)
-        ax.set_ylabel('Conversion Efficiency (%)', fontsize=12)
-        ax.legend()
-        plt.xticks(rotation=90, fontsize=8)
-        plt.tight_layout()
+        # All samples as bar plot
+        ax = axes[1]
+        qc_df_sorted = qc_df.sort_values('conversion_pct')
+        colors = ['red' if x == 'als' else 'blue' for x in qc_df_sorted['disease_status']]
+        
+        ax.bar(range(len(qc_df_sorted)), qc_df_sorted['conversion_pct'], color=colors, alpha=0.7)
+        ax.axhline(y=BISULFITE_CONVERSION_THRESHOLD * 100, 
+                  color='black', linestyle='--', linewidth=2)
+        ax.set_title('All Samples (sorted)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Sample Index', fontsize=10)
+        ax.set_ylabel('Conversion Efficiency (%)', fontsize=10)
+        
+        # Add custom legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='red', alpha=0.7, label='ALS'),
+            Patch(facecolor='blue', alpha=0.7, label='Control'),
+            plt.Line2D([0], [0], color='black', linewidth=2, linestyle='--', 
+                      label=f'Threshold ({BISULFITE_CONVERSION_THRESHOLD*100}%)')
+        ]
+        ax.legend(handles=legend_elements, loc='lower right', fontsize=9)
     
+    plt.tight_layout()
     plt.savefig(output_dir / 'conversion_efficiency.png', dpi=300, bbox_inches='tight')
     plt.close()
     print(f"  ✓ Saved: conversion_efficiency.png")
     
-    # Plot 3: Fragment size distribution by disease status
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Plot 3: Fragment size distribution detail
+    fig, ax = plt.subplots(figsize=(12, 6))
     
     if 'mean_fragment_size' in qc_df.columns:
-        qc_df.boxplot(column='mean_fragment_size', by='disease_status', ax=ax)
-        ax.set_title('Fragment Size by Disease Status', fontsize=14, fontweight='bold')
+        sns.violinplot(data=qc_df, x='disease_status', y='mean_fragment_size',
+                      hue='batch', ax=ax, inner='quartile')
+        ax.set_title('Fragment Size Distribution by Disease Status and Batch', 
+                    fontsize=14, fontweight='bold')
         ax.set_xlabel('Disease Status', fontsize=12)
         ax.set_ylabel('Mean Fragment Size (bp)', fontsize=12)
-        plt.sca(ax)
-        plt.xticks(rotation=0)
+        ax.legend(title='Batch', fontsize=10)
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'fragment_size_by_disease.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / 'fragment_size_distribution.png', dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"  ✓ Saved: fragment_size_by_disease.png")
+    print(f"  ✓ Saved: fragment_size_distribution.png")
     
     print(f"\n✓ All QC plots saved to: {output_dir}")
+
 
 
 def generate_qc_report(qc_df, batch_df, output_file):

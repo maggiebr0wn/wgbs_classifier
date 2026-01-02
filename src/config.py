@@ -119,6 +119,34 @@ MOTIF_FEATURES = PROCESSED_DIR / "motif_features.csv"
 METHYLATION_FEATURES = PROCESSED_DIR / "methylation_features.csv"
 ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
+# ============================================================================
+# MODULE 3: Exploratory Analysis & Visualization
+# ============================================================================
+"""
+Module 3 Overview:
+    - Generate required plots
+    - Perform exploratory data analysis (EDA)
+    - Assess batch effects
+    - PCA and clustering analysis
+    
+Input:
+    - all_features.csv from Module 2
+    - qc_metrics.csv from Module 1
+    
+Output:
+    - Required plots: fragment size, positions, motifs, methylation
+    - Exploratory analysis plots: PCA, correlation heatmaps, clustering
+    - Summary statistics tables
+"""
+
+# Figure output directories
+VIZ_FIGURES_DIR = FIGURES_DIR / "visualization"
+EDA_FIGURES_DIR = FIGURES_DIR / "eda" # Exploratory Data Analysis
+
+# Summary tables
+SUMMARY_TABLES_DIR = RESULTS_DIR / "tables"
+FEATURE_SUMMARY = SUMMARY_TABLES_DIR / "feature_summary_statistics.csv"
+UNIVARIATE_TESTS = SUMMARY_TABLES_DIR / "univariate_comparisons.csv"
 
 # ============================================================================
 # Test Configuration

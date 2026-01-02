@@ -84,9 +84,10 @@ QC_SAMPLE_SIZE = 10000  # Number of reads to sample for conversion check
 """
 Module 2 Overview:
     - Extract fragment size features (full distributions, size bins)
-    - Extract fragment start/end positions across chr21
+    - Extract fragment start/end positions 
     - Extract end motif features (4-mer frequencies from read ends)
     - Extract methylation features (CpG methylation from XM tags)
+    - Extract REGIONAL methylation features (methylation per genomic bin)
     
 Input:
     - sample_manifest.csv from Module 0
@@ -109,14 +110,24 @@ FRAGMENT_SIZE_BINS = {
     'long': (400, 1000)           # > 400 bp
 }
 
-# Position binning (divide chr21 into bins for coverage features)
-N_POSITION_BINS = 100  # Number of bins to divide chromosome into
+# Genomic binning  
+# Specify BIN SIZE (not number of bins) - number is calculated from chr length
+POSITION_BIN_SIZE = 500           # 500 bp bins for coverage/fragmentomics 
+METHYLATION_BIN_SIZE = 500        # 500 bp bins for regional methylation 
+MIN_CPG_PER_BIN = 3               # Minimum CpG sites required per bin 
+
+# Note: Number of bins is calculated as ceil(chr_length / bin_size)
+# Chromosome length obtained  from BAM file
+# For chr21 (~46.7 Mb):
+#   500 bp bins → ~93,420 bins
+#   Expected CpGs per bin: ~5 CpGs (with ~1 CpG per 100 bp)
 
 # Output files
 FRAGMENT_FEATURES = PROCESSED_DIR / "fragment_features.csv"
 POSITION_FEATURES = PROCESSED_DIR / "position_features.csv"
 MOTIF_FEATURES = PROCESSED_DIR / "motif_features.csv"
 METHYLATION_FEATURES = PROCESSED_DIR / "methylation_features.csv"
+REGIONAL_METHYLATION_FEATURES = PROCESSED_DIR / "regional_methylation_features.csv"
 ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
 # ============================================================================

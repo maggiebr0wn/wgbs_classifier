@@ -79,7 +79,7 @@ QC_SAMPLE_SIZE = 10000  # Number of reads to sample for conversion check
 
 
 # ============================================================================
-# MODULE 2: Feature Extraction (GOLD STANDARD)
+# MODULE 2: Feature Extraction
 # ============================================================================
 """
 Module 2 Overview:
@@ -87,7 +87,7 @@ Module 2 Overview:
     
     FRAGMENTOMICS FEATURES (cfDNA standard):
     - Fragment size distribution (summary stats, ratios, size bins)
-    - Fragment end motifs (top 20 most discriminative 4-mers, diversity)
+    - Fragment end motifs (ALL 256 4-mer proportions for assignment)
     - Coverage profile (100 kb bins across chr21)
     
     METHYLATION FEATURES (WGBS standard):
@@ -103,14 +103,14 @@ Input:
     - BAM files
     
 Output:
-    - fragmentomics_features.csv (~509 features per sample)
-    - methylation_features.csv (~475 features per sample)
-    - all_features.csv (merged, ~984 features per sample)
+    - fragmentomics_features.csv (~745 features: 20 stats + 5 categories + 2 summary + 256 k-mers + 468 coverage bins)
+    - methylation_features.csv (~475 features: 8 global + 467 regional)
+    - all_features.csv (merged, ~1220 features per sample)
 """
 
 # Feature extraction parameters
 KMER_SIZE = 4  # 4-mers for end motifs
-N_TOP_KMERS = 20  # Keep only top 20 most discriminative motifs (instead of all 256 combinations)
+EXTRACT_ALL_KMERS = True  # Extract all 256 4-mer combinations (not just top 20)
 
 # Fragment size categories (based on nucleosome biology)
 FRAGMENT_SIZE_CATEGORIES = {
@@ -196,12 +196,12 @@ Output:
 """
 
 # PCA parameters
-N_PCA_COMPONENTS = 10  # Number of PCs to compute
+N_PCA_COMPONENTS = 30  # Number of PCs to compute
 MIN_VARIANCE_THRESHOLD = 0.01  # Minimum variance to keep feature (1%)
 
 # Feature selection for high-dimensional bins
 MIN_SAMPLE_COVERAGE = 0.5  # Feature must have data in ≥50% of samples
-N_TOP_VARIABLE_BINS = 100  # Keep top 100 most variable bins per modality
+N_TOP_VARIABLE_BINS = 200  # Keep top 100 most variable bins per modality
 
 # Final feature selection
 N_TOP_FEATURES_FRAGMENTOMICS = 50  # Top fragmentomics features

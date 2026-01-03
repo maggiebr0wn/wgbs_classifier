@@ -1,5 +1,5 @@
 """
-Module 2: Feature Extraction (GOLD STANDARD)
+Module 2: Feature Extraction
 
 Purpose:
     Extract fragmentomics and methylation features using gold-standard methods
@@ -53,7 +53,6 @@ from src.config import (
     MIN_FRAGMENT_SIZE,
     MAX_FRAGMENT_SIZE,
     KMER_SIZE,
-    N_TOP_KMERS,
     FRAGMENT_SIZE_CATEGORIES,
     FRAGMENTOMICS_BIN_SIZE,
     METHYLATION_BIN_SIZE,
@@ -113,15 +112,15 @@ def extract_fragmentomics_features(bam_path, sample_id, chromosome=CHROMOSOME):
     2. Fragment size categories (5 features)
        - % of fragments in each size category
     
-    3. End motif features (22 features)
-       - Top 20 most common 4-mers (frequencies)
+    3. End motif features (258 features)
+       - ALL 256 4-mer proportions (for assignment requirement)
        - Motif diversity (Shannon entropy)
        - GC content of motifs
     
     4. Coverage profile (N features, N = chr_length / bin_size)
        - % of fragments starting in each bin (100 kb bins)
     
-    Total: ~509 features for chr21 with 100 kb bins
+    Total: ~745 features for chr21 with 100 kb bins
     
     Parameters
     ----------
@@ -228,34 +227,32 @@ def extract_fragmentomics_features(bam_path, sample_id, chromosome=CHROMOSOME):
                 features[f'frag_pct_{cat_name}'] = (count / total) * 100
         
         # ====================================================================
-        # 2. END MOTIF FEATURES
+        # 2. END MOTIF FEATURES (ALL 256 4-MERS)
         # ====================================================================
         
-        if sum(end_motifs.values()) == 0:
+        total_motifs = sum(end_motifs.values())
+        
+        if total_motifs == 0:
             # No motifs - set all to NaN
-            for i in range(N_TOP_KMERS):
-                features[f'motif_top{i+1}_freq'] = np.nan
-                features[f'motif_top{i+1}_kmer'] = 'NA'
+            # Generate all 256 possible 4-mers
+            all_kmers = [''.join(p) for p in itertools.product('ACGT', repeat=KMER_SIZE)]
+            
+            for kmer in all_kmers:
+                features[f'kmer_{kmer}'] = np.nan
             
             features['motif_diversity'] = np.nan
             features['motif_gc_content'] = np.nan
         else:
-            # Get top N most common motifs
-            top_motifs = end_motifs.most_common(N_TOP_KMERS)
-            total_motifs = sum(end_motifs.values())
+            # Generate all 256 possible 4-mers
+            all_kmers = [''.join(p) for p in itertools.product('ACGT', repeat=KMER_SIZE)]
             
-            # Store top motif frequencies
-            for i in range(N_TOP_KMERS):
-                if i < len(top_motifs):
-                    kmer, count = top_motifs[i]
-                    features[f'motif_top{i+1}_kmer'] = kmer
-                    features[f'motif_top{i+1}_freq'] = (count / total_motifs) * 100
-                else:
-                    features[f'motif_top{i+1}_kmer'] = 'NA'
-                    features[f'motif_top{i+1}_freq'] = 0.0
+            # Store proportion for EACH k-mer (all 256)
+            for kmer in all_kmers:
+                count = end_motifs.get(kmer, 0)
+                features[f'kmer_{kmer}'] = (count / total_motifs) * 100
             
             # Motif diversity (Shannon entropy)
-            frequencies = np.array([count / total_motifs for count in end_motifs.values()])
+            frequencies = np.array([end_motifs.get(kmer, 0) / total_motifs for kmer in all_kmers])
             frequencies = frequencies[frequencies > 0]
             entropy = -np.sum(frequencies * np.log2(frequencies))
             features['motif_diversity'] = entropy
@@ -307,9 +304,10 @@ def extract_fragmentomics_features(bam_path, sample_id, chromosome=CHROMOSOME):
         for cat_name in FRAGMENT_SIZE_CATEGORIES.keys():
             features[f'frag_pct_{cat_name}'] = np.nan
         
-        for i in range(N_TOP_KMERS):
-            features[f'motif_top{i+1}_freq'] = np.nan
-            features[f'motif_top{i+1}_kmer'] = 'NA'
+        # All 256 k-mers
+        all_kmers = [''.join(p) for p in itertools.product('ACGT', repeat=KMER_SIZE)]
+        for kmer in all_kmers:
+            features[f'kmer_{kmer}'] = np.nan
         
         features['motif_diversity'] = np.nan
         features['motif_gc_content'] = np.nan
@@ -546,7 +544,7 @@ def run_module_2():
         (fragmentomics_df, methylation_df, all_features_df)
     """
     print("\n" + "=" * 70)
-    print("MODULE 2: Feature Extraction (GOLD STANDARD)")
+    print("MODULE 2: Feature Extraction")
     print("=" * 70)
     
     # Ensure output directory exists
@@ -577,7 +575,6 @@ def run_module_2():
     print(f"  Fragmentomics bin size: {FRAGMENTOMICS_BIN_SIZE:,} bp → {n_coverage_bins} bins")
     print(f"  Methylation bin size: {METHYLATION_BIN_SIZE:,} bp → {n_meth_bins} bins")
     print(f"  Min CpG per bin: {MIN_CPG_PER_BIN}")
-    print(f"  Top motifs to keep: {N_TOP_KMERS}")
     
     # ========================================================================
     # EXTRACT FRAGMENTOMICS FEATURES

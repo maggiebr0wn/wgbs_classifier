@@ -1,45 +1,31 @@
 """
-Module 3: Exploratory Analysis & Visualization
+Module 3: Visualization & Batch Effects
 
 Purpose:
-    Generate required plots and perform exploratory data analysis.
+    Generate required assignment plots and assess batch effects.
     
 Required Plots:
     1. Fragment length distribution
-    2. Start and end position distributions
+    2. Start/end position distributions
     3. End motif distribution
     4. Methylation analysis
-    
-Additional Analysis:
-    - PCA and clustering
-    - Batch effect visualization
-    - Feature correlations
-    - Univariate statistical tests
+
+Batch Effects:
+    - Test Discovery vs Validation differences
+    - Check for confounding with disease status
 
 Input:
-    - data/processed/all_features.csv (from Module 2)
-    - data/processed/qc_metrics.csv (from Module 1)
+    - data/processed/all_features.csv
 
 Output:
-    - results/figures/visualization/ (required plots)
-    - results/figures/eda/ (exploratory plots)
-    - results/tables/ (summary statistics)
-
-Functions:
-    - plot_fragment_distribution(): Fragment size distribution plots
-    - plot_position_distributions(): Start/end position plots
-    - plot_motif_distribution(): End motif frequency plots
-    - plot_methylation_analysis(): Methylation analysis plots
-    - perform_pca(): PCA analysis and visualization
-    - plot_feature_correlations(): Correlation heatmaps
-    - univariate_tests(): Statistical tests for all features
-    - run_module_3(): Execute complete Module 3 pipeline
+    - results/figures/required_plots/ (4 required plots)
+    - results/tables/batch_effects_summary.csv
 
 Usage:
     As a script:
         python src/visualization.py
     
-    In a notebook or other module:
+    In a notebook:
         from src.visualization import run_module_3
         run_module_3()
 """
@@ -49,655 +35,403 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from scipy.stats import mannwhitneyu
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+from scipy.stats import mannwhitneyu, chi2_contingency
 import warnings
 warnings.filterwarnings('ignore')
 
 # Import configuration
 from src.config import (
     ALL_FEATURES,
-    QC_METRICS,
-    VIZ_FIGURES_DIR,
-    EDA_FIGURES_DIR,
-    SUMMARY_TABLES_DIR,
-    FEATURE_SUMMARY,
-    UNIVARIATE_TESTS,
-    RESULTS_DIR,
-    FIGURES_DIR
+    REQUIRED_PLOTS_DIR,
+    BATCH_EFFECTS_FILE,
+    FRAGMENT_SIZE_CATEGORIES,
+    RESULTS_DIR
 )
 
 
-def plot_fragment_distribution(features_df, output_dir):
+# ============================================================================
+# Required Assignment Plots
+# ============================================================================
+
+def plot_fragment_length_distribution(df, output_dir):
     """
-    Generate fragment length distribution plots (REQUIRED FOR ASSIGNMENT).
+    Generate fragment length distribution plot (REQUIRED).
     
-    Creates:
-    1. Histogram of fragment sizes (ALS vs Control)
-    2. Violin plots by disease status and batch
-    3. Summary statistics comparison
-    
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix with fragment size features
-    output_dir : Path
-        Directory to save plots
+    Shows:
+    - Box plots of mean fragment sizes (ALS vs Control)
+    - Fragment size category distributions
     """
-    print("\n1. Fragment Length Distribution (REQUIRED)")
+    print("\n1. Fragment Length Distribution")
     print("-" * 70)
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Plot 1: Histogram - Fragment size distribution
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Overlaid histograms
+    # Plot 1: Box plot of mean fragment size (cleaner than histogram)
     ax = axes[0]
-    als_mean = features_df[features_df['disease_status'] == 'als']['frag_mean']
-    ctrl_mean = features_df[features_df['disease_status'] == 'ctrl']['frag_mean']
     
-    ax.hist(als_mean, bins=15, alpha=0.6, label='ALS', color='red', edgecolor='black')
-    ax.hist(ctrl_mean, bins=15, alpha=0.6, label='Control', color='blue', edgecolor='black')
-    ax.set_xlabel('Mean Fragment Size (bp)', fontsize=12)
-    ax.set_ylabel('Number of Samples', fontsize=12)
-    ax.set_title('Fragment Size Distribution: ALS vs Control', fontsize=13, fontweight='bold')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
+    # Prepare data
+    plot_data = df[['disease_status', 'frag_mean']].copy()
+    plot_data.columns = ['Disease Status', 'Mean Fragment Size (bp)']
     
-    # Add statistical test
-    stat, p_value = mannwhitneyu(als_mean, ctrl_mean)
-    ax.text(0.98, 0.95, f'Mann-Whitney U\np = {p_value:.4f}', 
-           transform=ax.transAxes, fontsize=10,
-           verticalalignment='top', horizontalalignment='right',
-           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    # Replace the box plot section with:
+    sns.violinplot(data=plot_data, x='Disease Status', y='Mean Fragment Size (bp)', 
+                palette={'als': 'red', 'ctrl': 'blue'}, ax=ax, inner='box')
+
+    sns.stripplot(data=plot_data, x='Disease Status', y='Mean Fragment Size (bp)',
+                color='black', alpha=0.4, size=5, ax=ax)
     
-    # Violin plot by disease and batch
-    ax = axes[1]
-    sns.violinplot(data=features_df, x='disease_status', y='frag_mean',
-                  hue='batch', ax=ax, inner='box', split=False)
+    # Add mono-nucleosome reference line
+    ax.axhline(167, color='green', linestyle='--', linewidth=2, alpha=0.7, 
+              label='Mono-nucleosome (167 bp)')
+    
     ax.set_xlabel('Disease Status', fontsize=12)
     ax.set_ylabel('Mean Fragment Size (bp)', fontsize=12)
-    ax.set_title('Fragment Size by Disease and Batch', fontsize=13, fontweight='bold')
-    ax.legend(title='Batch', fontsize=10)
+    ax.set_title('Fragment Size Distribution', fontsize=13, fontweight='bold')
+    ax.set_xticklabels(['ALS', 'Control'])
+    ax.legend(loc='upper right')
+    ax.grid(True, alpha=0.3, axis='y')
     
-    plt.tight_layout()
-    plt.savefig(output_dir / 'fragment_length_distribution.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: fragment_length_distribution.png")
+    # Statistical test
+    als_frag = df[df['disease_status'] == 'als']['frag_mean']
+    ctrl_frag = df[df['disease_status'] == 'ctrl']['frag_mean']
+    stat, p_val = mannwhitneyu(als_frag, ctrl_frag)
     
-    # Plot 2: Detailed fragment size statistics
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Fragment Size Features: ALS vs Control', fontsize=14, fontweight='bold')
+    ax.text(0.02, 0.98, f'Mann-Whitney U\np = {p_val:.4f}', 
+           transform=ax.transAxes, fontsize=10, va='top', ha='left',
+           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
     
-    # Mean, median, std, IQR
-    metrics = [
-        ('frag_mean', 'Mean Fragment Size (bp)'),
-        ('frag_median', 'Median Fragment Size (bp)'),
-        ('frag_std', 'Fragment Size Std Dev (bp)'),
-        ('frag_iqr', 'Fragment Size IQR (bp)')
-    ]
-    
-    for idx, (metric, label) in enumerate(metrics):
-        ax = axes[idx // 2, idx % 2]
-        if metric in features_df.columns:
-            sns.violinplot(data=features_df, x='disease_status', y=metric,
-                          hue='batch', ax=ax, inner='quartile')
-            ax.set_xlabel('Disease Status', fontsize=11)
-            ax.set_ylabel(label, fontsize=11)
-            ax.set_title(label, fontsize=12, fontweight='bold')
-            ax.legend(title='Batch', fontsize=9)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'fragment_size_detailed.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: fragment_size_detailed.png")
-    
-    # Plot 3: Fragment size bins
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    bin_cols = [c for c in features_df.columns if c.startswith('frag_pct_')]
-    if len(bin_cols) > 0:
-        # Prepare data for plotting
-        bin_data = []
-        for bin_col in bin_cols:
-            bin_name = bin_col.replace('frag_pct_', '')
-            for idx, row in features_df.iterrows():
-                bin_data.append({
-                    'bin': bin_name,
-                    'percentage': row[bin_col],
-                    'disease_status': row['disease_status'],
-                    'batch': row['batch']
-                })
-        
-        bin_df = pd.DataFrame(bin_data)
-        
-        sns.barplot(data=bin_df, x='bin', y='percentage', hue='disease_status', ax=ax)
-        ax.set_xlabel('Fragment Size Bin', fontsize=12)
-        ax.set_ylabel('Percentage of Fragments (%)', fontsize=12)
-        ax.set_title('Fragment Size Distribution by Bins', fontsize=13, fontweight='bold')
-        ax.legend(title='Disease Status', fontsize=11)
-        ax.tick_params(axis='x', rotation=45)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'fragment_size_bins.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: fragment_size_bins.png")
-
-
-def plot_position_distributions(features_df, output_dir):
-    """
-    Generate start and end position distribution plots (REQUIRED FOR ASSIGNMENT).
-    
-    Creates:
-    1. Coverage across chromosome (binned)
-    2. Position statistics comparison
-    
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix with position features
-    output_dir : Path
-        Directory to save plots
-    """
-    print("\n2. Start and End Position Distributions (REQUIRED)")
-    print("-" * 70)
-    
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Plot 1: Coverage across chr21 (binned)
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10))
-    
-    # Get position bin columns
-    pos_bin_cols = [c for c in features_df.columns if c.startswith('pos_bin_')]
-    
-    if len(pos_bin_cols) > 0:
-        # ALS samples
-        ax = axes[0]
-        als_samples = features_df[features_df['disease_status'] == 'als']
-        for idx, row in als_samples.iterrows():
-            coverage = [row[col] for col in pos_bin_cols]
-            ax.plot(coverage, alpha=0.3, color='red')
-        
-        # Mean coverage
-        als_mean_coverage = als_samples[pos_bin_cols].mean()
-        ax.plot(als_mean_coverage.values, color='darkred', linewidth=2, label='Mean ALS')
-        ax.set_ylabel('Coverage (%)', fontsize=12)
-        ax.set_title('Fragment Start Position Distribution - ALS Samples', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(fontsize=11)
-        ax.grid(True, alpha=0.3)
-        
-        # Control samples
-        ax = axes[1]
-        ctrl_samples = features_df[features_df['disease_status'] == 'ctrl']
-        for idx, row in ctrl_samples.iterrows():
-            coverage = [row[col] for col in pos_bin_cols]
-            ax.plot(coverage, alpha=0.3, color='blue')
-        
-        # Mean coverage
-        ctrl_mean_coverage = ctrl_samples[pos_bin_cols].mean()
-        ax.plot(ctrl_mean_coverage.values, color='darkblue', linewidth=2, label='Mean Control')
-        ax.set_xlabel('Position Bin (across chr21)', fontsize=12)
-        ax.set_ylabel('Coverage (%)', fontsize=12)
-        ax.set_title('Fragment Start Position Distribution - Control Samples', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(fontsize=11)
-        ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'position_distributions.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: position_distributions.png")
-    
-    # Plot 2: Position statistics
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    
-    # Mean start position
-    ax = axes[0]
-    if 'pos_mean_start' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='pos_mean_start',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=12)
-        ax.set_ylabel('Mean Start Position', fontsize=12)
-        ax.set_title('Fragment Start Position: ALS vs Control', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(title='Batch')
-    
-    # Mean end position
+    # Plot 2: Fragment size categories (stacked bar - cleaner visualization)
     ax = axes[1]
-    if 'pos_mean_end' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='pos_mean_end',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=12)
-        ax.set_ylabel('Mean End Position', fontsize=12)
-        ax.set_title('Fragment End Position: ALS vs Control', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(title='Batch')
+    cat_cols = [c for c in df.columns if c.startswith('frag_pct_')]
+    categories = [c.replace('frag_pct_', '').replace('_', ' ').title() for c in cat_cols]
     
-    plt.tight_layout()
-    plt.savefig(output_dir / 'position_statistics.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: position_statistics.png")
-
-
-def plot_motif_distribution(features_df, output_dir):
-    """
-    Generate end motif distribution plots (REQUIRED FOR ASSIGNMENT).
+    als_cats = df[df['disease_status'] == 'als'][cat_cols].mean().values
+    ctrl_cats = df[df['disease_status'] == 'ctrl'][cat_cols].mean().values
     
-    Creates:
-    1. Top motifs comparison (ALS vs Control)
-    2. Motif diversity comparison
-    3. Heatmap of motif frequencies
+    # Create stacked bar chart
+    x = ['ALS', 'Control']
+    width = 0.6
     
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix with motif features
-    output_dir : Path
-        Directory to save plots
-    """
-    print("\n3. End Motif Distribution (REQUIRED)")
-    print("-" * 70)
+    # Colors for each category
+    colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6']
     
-    output_dir.mkdir(parents=True, exist_ok=True)
+    bottom_als = 0
+    bottom_ctrl = 0
     
-    # Get motif frequency columns (4-mers)
-    motif_cols = [c for c in features_df.columns 
-                  if c.startswith('motif_') and len(c) == 10]  # motif_XXXX
+    for i, (cat, color) in enumerate(zip(categories, colors)):
+        # ALS bar
+        ax.bar(0, als_cats[i], width, bottom=bottom_als, 
+              color=color, alpha=0.8, edgecolor='black', linewidth=0.5)
+        # Control bar
+        ax.bar(1, ctrl_cats[i], width, bottom=bottom_ctrl, 
+              color=color, alpha=0.8, label=cat, edgecolor='black', linewidth=0.5)
+        
+        bottom_als += als_cats[i]
+        bottom_ctrl += ctrl_cats[i]
     
-    if len(motif_cols) == 0:
-        print("  ⚠️  No motif features found")
-        return
-    
-    # Calculate mean frequency for each motif by disease status
-    als_motifs = features_df[features_df['disease_status'] == 'als'][motif_cols].mean()
-    ctrl_motifs = features_df[features_df['disease_status'] == 'ctrl'][motif_cols].mean()
-    
-    # Plot 1: Top 20 motifs comparison
-    fig, ax = plt.subplots(figsize=(14, 6))
-    
-    # Get top 20 by overall frequency
-    overall_freq = features_df[motif_cols].mean().sort_values(ascending=False).head(20)
-    top_motifs = overall_freq.index
-    
-    # Prepare data for plotting
-    x = np.arange(len(top_motifs))
-    width = 0.35
-    
-    als_vals = [als_motifs[m] for m in top_motifs]
-    ctrl_vals = [ctrl_motifs[m] for m in top_motifs]
-    motif_names = [m.replace('motif_', '') for m in top_motifs]
-    
-    ax.bar(x - width/2, als_vals, width, label='ALS', color='red', alpha=0.7)
-    ax.bar(x + width/2, ctrl_vals, width, label='Control', color='blue', alpha=0.7)
-    
-    ax.set_xlabel('End Motif (4-mer)', fontsize=12)
-    ax.set_ylabel('Mean Frequency (%)', fontsize=12)
-    ax.set_title('Top 20 End Motif Frequencies: ALS vs Control', 
-                fontsize=13, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(motif_names, rotation=45, ha='right')
-    ax.legend(fontsize=11)
+    ax.set_ylabel('Percentage (%)', fontsize=12)
+    ax.set_title('Fragment Size Categories', fontsize=13, fontweight='bold')
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(x)
+    ax.set_ylim([0, 100])
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9, framealpha=0.9)
     ax.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'end_motif_distribution.png', dpi=300, bbox_inches='tight')
+    output_file = output_dir / '01_fragment_length_distribution.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"  ✓ Saved: end_motif_distribution.png")
     
-    # Plot 2: Motif diversity and GC content
+    print(f"  ✓ Saved: {output_file.name}")
+
+
+def plot_position_distributions(df, output_dir):
+    """
+    Generate start/end position distribution plot (REQUIRED).
+    
+    Shows:
+    - Mean coverage profile across chr21 (ALS vs Control)
+    """
+    print("\n2. Start/End Position Distributions")
+    print("-" * 70)
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get coverage bins (exclude metadata)
+    coverage_cols = [c for c in df.columns 
+                    if c.startswith('coverage_bin_') 
+                    and c != 'coverage_bin_size']
+    
+    # Sort numerically (they should already be in order, but be safe)
+    coverage_cols = sorted(coverage_cols, key=lambda x: int(x.split('_')[-1]))
+    
+    print(f"  Using {len(coverage_cols)} coverage bins")
+    
+    # Calculate mean coverage
+    als_coverage = df[df['disease_status'] == 'als'][coverage_cols].mean().values
+    ctrl_coverage = df[df['disease_status'] == 'ctrl'][coverage_cols].mean().values
+    
+    print(f"  Coverage range: {als_coverage.min():.3f}% - {als_coverage.max():.3f}%")
+    
+    fig, ax = plt.subplots(figsize=(14, 5))
+    
+    bin_positions = np.arange(len(coverage_cols))
+    
+    ax.plot(bin_positions, als_coverage, color='red', linewidth=1.5, label='ALS', alpha=0.8)
+    ax.plot(bin_positions, ctrl_coverage, color='blue', linewidth=1.5, label='Control', alpha=0.8)
+    ax.fill_between(bin_positions, als_coverage, ctrl_coverage, 
+                    where=(als_coverage > ctrl_coverage), 
+                    color='red', alpha=0.2)
+    ax.fill_between(bin_positions, als_coverage, ctrl_coverage, 
+                    where=(als_coverage <= ctrl_coverage), 
+                    color='blue', alpha=0.2)
+    
+    ax.set_xlabel('Genomic Position (100 kb bins across chr21)', fontsize=12)
+    ax.set_ylabel('Coverage (%)', fontsize=12)
+    ax.set_title('Fragment Start Position Distribution Across chr21', fontsize=13, fontweight='bold')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    output_file = output_dir / '02_position_distributions.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"  ✓ Saved: {output_file.name}")
+
+
+def plot_motif_distribution(df, output_dir):
+    """
+    Generate end motif distribution plot (REQUIRED).
+    
+    Shows:
+    - Top 20 motif frequencies (ALS vs Control)
+    - Motif diversity comparison
+    """
+    print("\n3. End Motif Distribution")
+    print("-" * 70)
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Motif diversity
+    # Plot 1: Top 10 motif frequencies
     ax = axes[0]
-    if 'motif_diversity' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='motif_diversity',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=12)
-        ax.set_ylabel('Motif Diversity (Shannon Entropy)', fontsize=12)
-        ax.set_title('End Motif Diversity: ALS vs Control', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(title='Batch')
     
-    # Motif GC content
+    # Get top 10 motif columns
+    motif_freq_cols = [f'motif_top{i+1}_freq' for i in range(10)]
+    motif_kmer_cols = [f'motif_top{i+1}_kmer' for i in range(10)]
+    
+    # Get most common kmers (mode)
+    top_kmers = [df[f'motif_top{i+1}_kmer'].mode()[0] for i in range(10)]
+    
+    # Calculate mean frequencies
+    als_freqs = df[df['disease_status'] == 'als'][motif_freq_cols].mean().values
+    ctrl_freqs = df[df['disease_status'] == 'ctrl'][motif_freq_cols].mean().values
+    
+    x = np.arange(10)
+    width = 0.35
+    
+    ax.bar(x - width/2, als_freqs, width, label='ALS', color='red', alpha=0.7)
+    ax.bar(x + width/2, ctrl_freqs, width, label='Control', color='blue', alpha=0.7)
+    ax.set_xlabel('End Motif (4-mer)', fontsize=12)
+    ax.set_ylabel('Frequency (%)', fontsize=12)
+    ax.set_title('Top 10 End Motif Frequencies', fontsize=13, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(top_kmers, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    # Plot 2: Motif diversity
     ax = axes[1]
-    if 'motif_gc_content' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='motif_gc_content',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=12)
-        ax.set_ylabel('Motif GC Content (%)', fontsize=12)
-        ax.set_title('End Motif GC Content: ALS vs Control', 
-                    fontsize=13, fontweight='bold')
-        ax.legend(title='Batch')
+    
+    if 'motif_diversity' in df.columns:
+        df.boxplot(column='motif_diversity', by='disease_status', ax=ax)
+        ax.set_title('Motif Diversity (Shannon Entropy)', fontsize=13, fontweight='bold')
+        ax.set_xlabel('Disease Status')
+        ax.set_ylabel('Shannon Entropy (bits)')
+        plt.sca(ax)
+        plt.xticks(rotation=0)
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'motif_diversity.png', dpi=300, bbox_inches='tight')
+    output_file = output_dir / '03_end_motif_distribution.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"  ✓ Saved: motif_diversity.png")
     
-    # Plot 3: Heatmap of top motifs
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Select top 30 motifs
-    top_30_motifs = overall_freq.head(30).index
-    heatmap_data = features_df[['sample_id', 'disease_status'] + list(top_30_motifs)].copy()
-    heatmap_data = heatmap_data.set_index('sample_id')
-    
-    # Sort by disease status
-    heatmap_data = heatmap_data.sort_values('disease_status')
-    
-    # Create heatmap
-    motif_data = heatmap_data[top_30_motifs]
-    motif_names_clean = [m.replace('motif_', '') for m in top_30_motifs]
-    
-    sns.heatmap(motif_data.T, cmap='YlOrRd', cbar_kws={'label': 'Frequency (%)'},
-               yticklabels=motif_names_clean, xticklabels=False, ax=ax)
-    ax.set_ylabel('End Motif (4-mer)', fontsize=12)
-    ax.set_xlabel('Samples (sorted by disease status)', fontsize=12)
-    ax.set_title('Top 30 End Motif Frequencies Across Samples', 
-                fontsize=13, fontweight='bold')
-    
-    # Add disease status indicator
-    disease_colors = heatmap_data['disease_status'].map({'als': 'red', 'ctrl': 'blue'})
-    for i, color in enumerate(disease_colors):
-        ax.add_patch(plt.Rectangle((i, -1), 1, 1, color=color, clip_on=False))
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'motif_heatmap.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: motif_heatmap.png")
+    print(f"  ✓ Saved: {output_file.name}")
 
 
-def plot_methylation_analysis(features_df, output_dir):
+def plot_methylation_analysis(df, output_dir):
     """
-    Generate methylation analysis plots (REQUIRED FOR ASSIGNMENT).
+    Generate methylation analysis plot (REQUIRED).
     
-    Creates:
-    1. CpG methylation rate comparison
-    2. Methylation variance comparison
-    3. Per-read methylation statistics
-    
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix with methylation features
-    output_dir : Path
-        Directory to save plots
+    Shows:
+    - Global CpG methylation (ALS vs Control)
+    - Methylation distribution (high/low/intermediate)
+    - Regional methylation coverage
     """
-    print("\n4. Methylation Analysis (REQUIRED)")
+    print("\n4. Methylation Analysis")
     print("-" * 70)
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Plot 1: CpG methylation rate
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('Methylation Analysis: ALS vs Control', fontsize=14, fontweight='bold')
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
     
-    # CpG methylation rate
-    ax = axes[0, 0]
-    if 'meth_cpg_rate' in features_df.columns:
-        features_df['meth_cpg_pct'] = features_df['meth_cpg_rate'] * 100
-        sns.violinplot(data=features_df, x='disease_status', y='meth_cpg_pct',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=11)
-        ax.set_ylabel('CpG Methylation Rate (%)', fontsize=11)
-        ax.set_title('CpG Methylation Rate', fontsize=12, fontweight='bold')
-        ax.legend(title='Batch')
+    # Plot 1: Mean CpG methylation
+    ax = axes[0]
+    if 'meth_mean_cpg' in df.columns:
+        df['meth_mean_cpg_pct'] = df['meth_mean_cpg'] * 100
+        df.boxplot(column='meth_mean_cpg_pct', by='disease_status', ax=ax)
+        ax.set_title('Mean CpG Methylation', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Disease Status')
+        ax.set_ylabel('CpG Methylation (%)')
+        plt.sca(ax)
+        plt.xticks(rotation=0)
+    
+    # Plot 2: Methylation distribution
+    ax = axes[1]
+    
+    if all(c in df.columns for c in ['meth_pct_high', 'meth_pct_low', 'meth_pct_intermediate']):
+        als_dist = df[df['disease_status'] == 'als'][['meth_pct_high', 'meth_pct_intermediate', 'meth_pct_low']].mean()
+        ctrl_dist = df[df['disease_status'] == 'ctrl'][['meth_pct_high', 'meth_pct_intermediate', 'meth_pct_low']].mean()
         
-        # Add statistical test
-        als_meth = features_df[features_df['disease_status'] == 'als']['meth_cpg_rate'].dropna()
-        ctrl_meth = features_df[features_df['disease_status'] == 'ctrl']['meth_cpg_rate'].dropna()
-        if len(als_meth) > 0 and len(ctrl_meth) > 0:
-            stat, p_val = mannwhitneyu(als_meth, ctrl_meth)
-            ax.text(0.98, 0.98, f'p = {p_val:.4f}', transform=ax.transAxes,
-                   fontsize=9, verticalalignment='top', horizontalalignment='right',
-                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    
-    # Methylation variance (per-read std)
-    ax = axes[0, 1]
-    if 'meth_std_per_read' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='meth_std_per_read',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=11)
-        ax.set_ylabel('Methylation Std Dev (per read)', fontsize=11)
-        ax.set_title('Methylation Variability', fontsize=12, fontweight='bold')
-        ax.legend(title='Batch')
-    
-    # Mean methylation per read
-    ax = axes[1, 0]
-    if 'meth_mean_per_read' in features_df.columns:
-        features_df['meth_mean_per_read_pct'] = features_df['meth_mean_per_read'] * 100
-        sns.violinplot(data=features_df, x='disease_status', y='meth_mean_per_read_pct',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=11)
-        ax.set_ylabel('Mean Methylation per Read (%)', fontsize=11)
-        ax.set_title('Per-Read Methylation', fontsize=12, fontweight='bold')
-        ax.legend(title='Batch')
-    
-    # Total CpG sites covered
-    ax = axes[1, 1]
-    if 'meth_total_cpg_sites' in features_df.columns:
-        sns.violinplot(data=features_df, x='disease_status', y='meth_total_cpg_sites',
-                      hue='batch', ax=ax, inner='box')
-        ax.set_xlabel('Disease Status', fontsize=11)
-        ax.set_ylabel('Total CpG Sites', fontsize=11)
-        ax.set_title('CpG Coverage', fontsize=12, fontweight='bold')
-        ax.legend(title='Batch')
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'methylation_analysis.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: methylation_analysis.png")
-    
-    # Plot 2: CHH methylation (QC check)
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    if 'meth_chh_rate' in features_df.columns:
-        features_df['meth_chh_pct'] = features_df['meth_chh_rate'] * 100
-        sns.violinplot(data=features_df, x='disease_status', y='meth_chh_pct',
-                      hue='batch', ax=ax, inner='box')
-        ax.axhline(y=1.0, color='red', linestyle='--', linewidth=2,
-                  label='QC Threshold (1%)')
-        ax.set_xlabel('Disease Status', fontsize=12)
-        ax.set_ylabel('CHH Methylation Rate (%)', fontsize=12)
-        ax.set_title('CHH Methylation (Conversion Efficiency Check)', 
-                    fontsize=13, fontweight='bold')
+        categories = ['High\n(>80%)', 'Intermediate\n(20-80%)', 'Low\n(<20%)']
+        x = np.arange(3)
+        width = 0.35
+        
+        ax.bar(x - width/2, [als_dist['meth_pct_high'], als_dist['meth_pct_intermediate'], als_dist['meth_pct_low']], 
+               width, label='ALS', color='red', alpha=0.7)
+        ax.bar(x + width/2, [ctrl_dist['meth_pct_high'], ctrl_dist['meth_pct_intermediate'], ctrl_dist['meth_pct_low']], 
+               width, label='Control', color='blue', alpha=0.7)
+        
+        ax.set_xlabel('Methylation Level', fontsize=12)
+        ax.set_ylabel('Percentage (%)', fontsize=12)
+        ax.set_title('Methylation Distribution', fontsize=12, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(categories)
         ax.legend()
+        ax.grid(True, alpha=0.3, axis='y')
+    
+    # Plot 3: Regional methylation coverage
+    ax = axes[2]
+    
+    if 'regional_meth_n_bins_with_data' in df.columns:
+        # Calculate coverage percentage
+        n_bins = df['regional_meth_n_bins'].iloc[0] if 'regional_meth_n_bins' in df.columns else 467
+        df['regional_coverage_pct'] = (df['regional_meth_n_bins_with_data'] / n_bins) * 100
+        
+        df.boxplot(column='regional_coverage_pct', by='disease_status', ax=ax)
+        ax.set_title('Regional Methylation Coverage', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Disease Status')
+        ax.set_ylabel('Coverage (%)')
+        plt.sca(ax)
+        plt.xticks(rotation=0)
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'chh_methylation_qc.png', dpi=300, bbox_inches='tight')
+    output_file = output_dir / '04_methylation_analysis.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"  ✓ Saved: chh_methylation_qc.png")
-
-
-def perform_pca(features_df, output_dir):
-    """
-    Perform PCA analysis and generate visualization plots.
     
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix
-    output_dir : Path
-        Directory to save plots
+    print(f"  ✓ Saved: {output_file.name}")
+
+
+# ============================================================================
+# Batch Effect Assessment
+# ============================================================================
+
+def assess_batch_effects(df, output_file):
     """
-    print("\n5. PCA Analysis")
+    Assess batch effects (Discovery vs Validation).
+    
+    Tests:
+    1. Batch vs disease confounding (chi-square)
+    2. Key features by batch (Mann-Whitney U)
+    """
+    print("\nBatch Effect Assessment")
+    print("=" * 70)
+    
+    # Test 1: Batch-disease confounding
+    print("\n1. Batch-Disease Confounding:")
     print("-" * 70)
     
-    output_dir.mkdir(parents=True, exist_ok=True)
+    contingency = pd.crosstab(df['disease_status'], df['batch'])
+    print(contingency)
     
-    # Prepare feature matrix (exclude metadata)
-    metadata_cols = ['sample_id', 'disease_status', 'batch', 'age']
-    feature_cols = [c for c in features_df.columns if c not in metadata_cols]
+    chi2, p_val, dof, expected = chi2_contingency(contingency)
+    print(f"\nChi-square test: χ² = {chi2:.4f}, p = {p_val:.4f}")
     
-    X = features_df[feature_cols].copy()
+    if p_val > 0.05:
+        print("✓ No significant confounding between batch and disease (p > 0.05)")
+    else:
+        print("⚠️  Batch and disease are confounded (p < 0.05)")
     
-    # Handle missing values (fill with median)
-    X = X.fillna(X.median())
-    
-    # Standardize features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Perform PCA
-    pca = PCA()
-    X_pca = pca.fit_transform(X_scaled)
-    
-    # Create PCA dataframe
-    pca_df = pd.DataFrame({
-        'PC1': X_pca[:, 0],
-        'PC2': X_pca[:, 1],
-        'PC3': X_pca[:, 2],
-        'sample_id': features_df['sample_id'].values,
-        'disease_status': features_df['disease_status'].values,
-        'batch': features_df['batch'].values
-    })
-    
-    # Plot 1: PC1 vs PC2 colored by disease
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    
-    # By disease status
-    ax = axes[0]
-    for disease, color in [('als', 'red'), ('ctrl', 'blue')]:
-        mask = pca_df['disease_status'] == disease
-        ax.scatter(pca_df.loc[mask, 'PC1'], pca_df.loc[mask, 'PC2'],
-                  c=color, label=disease.upper(), s=100, alpha=0.7, edgecolors='black')
-    
-    ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', fontsize=12)
-    ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', fontsize=12)
-    ax.set_title('PCA: Colored by Disease Status', fontsize=13, fontweight='bold')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
-    
-    # By batch
-    ax = axes[1]
-    for batch, color in [('discovery', 'green'), ('validation', 'orange')]:
-        mask = pca_df['batch'] == batch
-        ax.scatter(pca_df.loc[mask, 'PC1'], pca_df.loc[mask, 'PC2'],
-                  c=color, label=batch.capitalize(), s=100, alpha=0.7, edgecolors='black')
-    
-    ax.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', fontsize=12)
-    ax.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', fontsize=12)
-    ax.set_title('PCA: Colored by Batch', fontsize=13, fontweight='bold')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'pca_analysis.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: pca_analysis.png")
-    
-    # Plot 2: Scree plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    explained_var = pca.explained_variance_ratio_[:10] * 100
-    cumulative_var = np.cumsum(explained_var)
-    
-    ax.bar(range(1, 11), explained_var, alpha=0.6, label='Individual', color='steelblue')
-    ax.plot(range(1, 11), cumulative_var, 'ro-', linewidth=2, label='Cumulative')
-    ax.set_xlabel('Principal Component', fontsize=12)
-    ax.set_ylabel('Variance Explained (%)', fontsize=12)
-    ax.set_title('PCA Variance Explained (Top 10 Components)', fontsize=13, fontweight='bold')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / 'pca_scree_plot.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: pca_scree_plot.png")
-    
-    print(f"  Total variance explained by PC1-PC2: {pca.explained_variance_ratio_[:2].sum()*100:.1f}%")
-
-
-def univariate_tests(features_df, output_file):
-    """
-    Perform univariate statistical tests for all features (ALS vs Control).
-    
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        Feature matrix
-    output_file : Path
-        Path to save results CSV
-    """
-    print("\n6. Univariate Statistical Tests")
+    # Test 2: Key features by batch
+    print("\n\n2. Key Features by Batch:")
     print("-" * 70)
     
-    # Get feature columns
-    metadata_cols = ['sample_id', 'disease_status', 'batch', 'age']
-    feature_cols = [c for c in features_df.columns if c not in metadata_cols]
+    # Select key features to test
+    key_features = [
+        'frag_mean',
+        'frag_pct_long',
+        'meth_mean_cpg',
+        'regional_meth_mean',
+        'motif_diversity'
+    ]
     
     results = []
     
-    for feature in feature_cols:
-        als_vals = features_df[features_df['disease_status'] == 'als'][feature].dropna()
-        ctrl_vals = features_df[features_df['disease_status'] == 'ctrl'][feature].dropna()
+    for feat in key_features:
+        if feat in df.columns:
+            disc = df[df['batch'] == 'discovery'][feat].dropna()
+            valid = df[df['batch'] == 'validation'][feat].dropna()
+            
+            if len(disc) > 0 and len(valid) > 0:
+                stat, p_val = mannwhitneyu(disc, valid)
+                
+                results.append({
+                    'feature': feat,
+                    'discovery_mean': disc.mean(),
+                    'discovery_std': disc.std(),
+                    'validation_mean': valid.mean(),
+                    'validation_std': valid.std(),
+                    'p_value': p_val,
+                    'significant': 'Yes' if p_val < 0.05 else 'No'
+                })
+                
+                sig = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else ''
+                print(f"{feat:25s}: Discovery={disc.mean():.4f}, Validation={valid.mean():.4f}, p={p_val:.4f} {sig}")
+    
+    # Save results
+    if len(results) > 0:
+        results_df = pd.DataFrame(results)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        results_df.to_csv(output_file, index=False)
+        print(f"\n✓ Saved batch effect results to: {output_file}")
         
-        if len(als_vals) > 0 and len(ctrl_vals) > 0:
-            # Mann-Whitney U test
-            stat, p_value = mannwhitneyu(als_vals, ctrl_vals, alternative='two-sided')
-            
-            # Effect size (difference in means)
-            als_mean = als_vals.mean()
-            ctrl_mean = ctrl_vals.mean()
-            difference = als_mean - ctrl_mean
-            
-            # Fold change (avoid division by zero)
-            if ctrl_mean != 0:
-                fold_change = als_mean / ctrl_mean
-            else:
-                fold_change = np.nan
-            
-            results.append({
-                'feature': feature,
-                'als_mean': als_mean,
-                'als_std': als_vals.std(),
-                'ctrl_mean': ctrl_mean,
-                'ctrl_std': ctrl_vals.std(),
-                'difference': difference,
-                'fold_change': fold_change,
-                'p_value': p_value,
-                'significant': p_value < 0.05
-            })
-    
-    # Create dataframe and sort by p-value
-    results_df = pd.DataFrame(results)
-    results_df = results_df.sort_values('p_value')
-    
-    # Save to CSV
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    results_df.to_csv(output_file, index=False)
-    
-    print(f"  ✓ Saved univariate test results: {output_file}")
-    print(f"  Features tested: {len(results_df)}")
-    print(f"  Significant features (p < 0.05): {results_df['significant'].sum()}")
-    print(f"\nTop 10 most significant features:")
-    print(results_df[['feature', 'p_value', 'difference', 'fold_change']].head(10).to_string(index=False))
-    
-    return results_df
+        n_sig = results_df['significant'].eq('Yes').sum()
+        print(f"  Significant batch effects: {n_sig}/{len(results_df)} features tested")
 
+
+# ============================================================================
+# Main Pipeline
+# ============================================================================
 
 def run_module_3():
     """
-    Run complete Module 3: Exploratory Analysis & Visualization pipeline.
+    Run complete Module 3 pipeline.
     
     Returns
     -------
-    dict
-        Dictionary containing analysis results
+    pd.DataFrame
+        Loaded features dataframe
     """
     print("\n" + "=" * 70)
-    print("MODULE 3: Exploratory Analysis & Visualization")
+    print("MODULE 3: Visualization & Batch Effects")
     print("=" * 70)
     
-    # Ensure output directories exist
-    VIZ_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    EDA_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    SUMMARY_TABLES_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Load features from Module 2
+    # Load features
     print(f"\nLoading features from: {ALL_FEATURES}")
     
     if not ALL_FEATURES.exists():
@@ -706,39 +440,34 @@ def run_module_3():
             f"Please run Module 2 first."
         )
     
-    features_df = pd.read_csv(ALL_FEATURES)
-    print(f"✓ Loaded features: {features_df.shape[0]} samples × {features_df.shape[1]} columns")
+    df = pd.read_csv(ALL_FEATURES)
+    print(f"✓ Loaded: {df.shape[0]} samples × {df.shape[1]} features")
     
-    # Generate required plots for assignment
+    # Generate required plots
     print("\n" + "=" * 70)
-    print("GENERATING REQUIRED PLOTS FOR ASSIGNMENT")
+    print("GENERATING REQUIRED PLOTS")
     print("=" * 70)
     
-    plot_fragment_distribution(features_df, VIZ_FIGURES_DIR)
-    plot_position_distributions(features_df, VIZ_FIGURES_DIR)
-    plot_motif_distribution(features_df, VIZ_FIGURES_DIR)
-    plot_methylation_analysis(features_df, VIZ_FIGURES_DIR)
+    plot_fragment_length_distribution(df, REQUIRED_PLOTS_DIR)
+    plot_position_distributions(df, REQUIRED_PLOTS_DIR)
+    plot_motif_distribution(df, REQUIRED_PLOTS_DIR)
+    plot_methylation_analysis(df, REQUIRED_PLOTS_DIR)
     
-    # Additional exploratory analysis
+    # Assess batch effects
     print("\n" + "=" * 70)
-    print("ADDITIONAL EXPLORATORY ANALYSIS")
+    print("BATCH EFFECT ASSESSMENT")
     print("=" * 70)
     
-    perform_pca(features_df, EDA_FIGURES_DIR)
-    univariate_results = univariate_tests(features_df, UNIVARIATE_TESTS)
+    assess_batch_effects(df, BATCH_EFFECTS_FILE)
     
     print("\n" + "=" * 70)
     print("MODULE 3 COMPLETE")
     print("=" * 70)
-    print(f"\nRequired plots saved to: {VIZ_FIGURES_DIR}")
-    print(f"EDA plots saved to: {EDA_FIGURES_DIR}")
-    print(f"Statistical results saved to: {SUMMARY_TABLES_DIR}")
+    print(f"\nRequired plots saved to: {REQUIRED_PLOTS_DIR}")
+    print(f"Batch effects summary: {BATCH_EFFECTS_FILE}")
     print("\n" + "=" * 70 + "\n")
     
-    return {
-        'features': features_df,
-        'univariate_results': univariate_results
-    }
+    return df
 
 
 # ============================================================================
@@ -747,4 +476,4 @@ def run_module_3():
 
 if __name__ == "__main__":
     # Run Module 3 as a standalone script
-    results = run_module_3()
+    features_df = run_module_3()

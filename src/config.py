@@ -140,40 +140,77 @@ METHYLATION_FEATURES_FILE = PROCESSED_DIR / "methylation_features.csv"
 ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
 # ============================================================================
-# MODULE 3: Visualization & Batch Effect Assessment
+# MODULE 3: Visualization & Batch Effects
 # ============================================================================
 """
 Module 3 Overview:
-    Generate required plots and assess batch effects.
+    Generate required assignment plots and assess batch effects.
     
-    REQUIRED ASSIGNMENT PLOTS:
+    REQUIRED PLOTS (Assignment):
     1. Fragment length distribution
-    2. Start and end position distributions
+    2. Start/end position distributions
     3. End motif distribution
     4. Methylation analysis
     
-    BATCH EFFECT ASSESSMENT:
-    - Test for batch effects in fragmentomics features
-    - Test for batch effects in methylation features
+    BATCH EFFECTS:
+    - Test if Discovery vs Validation batches differ
     - Check for confounding between batch and disease
     
 Input:
     - all_features.csv from Module 2
-    - fragmentomics_features.csv from Module 2
-    - methylation_features.csv from Module 2
     
 Output:
-    - results/figures/required_plots/ (assignment plots)
-    - results/figures/batch_effects/ (batch assessment plots)
-    - results/tables/batch_effect_tests.csv (statistical tests)
+    - Required plots in results/figures/required_plots/
+    - Batch effect summary table
 """
 
-# Figure output directories
+# Figure output directory
 REQUIRED_PLOTS_DIR = FIGURES_DIR / "required_plots"
-BATCH_EFFECTS_DIR = FIGURES_DIR / "batch_effects"
 
-# Summary tables
-BATCH_EFFECT_TESTS = SUMMARY_TABLES_DIR / "batch_effect_tests.csv"
+# Batch effect output
+BATCH_EFFECTS_FILE = RESULTS_DIR / "tables" / "batch_effects_summary.csv"
+
+# ============================================================================
+# MODULE 4: PCA & Feature Selection
+# ============================================================================
+"""
+Module 4 Overview:
+    Perform PCA separately on fragmentomics and methylation features.
+    Select top discriminative features for classification.
+    
+    PCA Strategy:
+    - Fragmentomics PCA: Fragment size + motifs + coverage (filter low variance)
+    - Methylation PCA: Global + regional bins (filter low variance)
+    
+    Feature Selection:
+    - Keep top variable features from each modality
+    - Combine for final feature set
+    
+Input:
+    - all_features.csv from Module 2
+    
+Output:
+    - PCA plots (fragmentomics and methylation separately)
+    - selected_features.csv (final feature set for classification)
+    - feature_importance.csv (ranking of features)
+"""
+
+# PCA parameters
+N_PCA_COMPONENTS = 10  # Number of PCs to compute
+MIN_VARIANCE_THRESHOLD = 0.01  # Minimum variance to keep feature (1%)
+
+# Feature selection for high-dimensional bins
+MIN_SAMPLE_COVERAGE = 0.5  # Feature must have data in ≥50% of samples
+N_TOP_VARIABLE_BINS = 100  # Keep top 100 most variable bins per modality
+
+# Final feature selection
+N_TOP_FEATURES_FRAGMENTOMICS = 50  # Top fragmentomics features
+N_TOP_FEATURES_METHYLATION = 50    # Top methylation features
+
+# Output files
+PCA_FIGURES_DIR = FIGURES_DIR / "pca"
+SELECTED_FEATURES_FILE = PROCESSED_DIR / "selected_features.csv"
+FEATURE_IMPORTANCE_FILE = RESULTS_DIR / "tables" / "feature_importance.csv"
 
 # ============================================================================
 # Test Configuration

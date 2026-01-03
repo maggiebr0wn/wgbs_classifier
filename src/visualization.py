@@ -68,19 +68,20 @@ def plot_fragment_length_distribution(df, output_dir):
     
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Plot 1: Box plot of mean fragment size (cleaner than histogram)
+    # Plot 1: Box plot of mean fragment size
     ax = axes[0]
     
     # Prepare data
     plot_data = df[['disease_status', 'frag_mean']].copy()
     plot_data.columns = ['Disease Status', 'Mean Fragment Size (bp)']
     
-    # Replace the box plot section with:
-    sns.violinplot(data=plot_data, x='Disease Status', y='Mean Fragment Size (bp)', 
-                palette={'als': 'red', 'ctrl': 'blue'}, ax=ax, inner='box')
-
+    # Box plot
+    sns.boxplot(data=plot_data, x='Disease Status', y='Mean Fragment Size (bp)', 
+                palette={'als': 'red', 'ctrl': 'blue'}, ax=ax)
+    
+    # Add individual points
     sns.stripplot(data=plot_data, x='Disease Status', y='Mean Fragment Size (bp)',
-                color='black', alpha=0.4, size=5, ax=ax)
+                 color='black', alpha=0.5, size=6, ax=ax)
     
     # Add mono-nucleosome reference line
     ax.axhline(167, color='green', linestyle='--', linewidth=2, alpha=0.7, 
@@ -102,7 +103,7 @@ def plot_fragment_length_distribution(df, output_dir):
            transform=ax.transAxes, fontsize=10, va='top', ha='left',
            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
     
-    # Plot 2: Fragment size categories (stacked bar - cleaner visualization)
+    # Plot 2: Fragment size categories (stacked bar)
     ax = axes[1]
     cat_cols = [c for c in df.columns if c.startswith('frag_pct_')]
     categories = [c.replace('frag_pct_', '').replace('_', ' ').title() for c in cat_cols]
@@ -110,21 +111,18 @@ def plot_fragment_length_distribution(df, output_dir):
     als_cats = df[df['disease_status'] == 'als'][cat_cols].mean().values
     ctrl_cats = df[df['disease_status'] == 'ctrl'][cat_cols].mean().values
     
-    # Create stacked bar chart
+    # Stacked bar chart
     x = ['ALS', 'Control']
     width = 0.6
     
-    # Colors for each category
     colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6']
     
     bottom_als = 0
     bottom_ctrl = 0
     
     for i, (cat, color) in enumerate(zip(categories, colors)):
-        # ALS bar
         ax.bar(0, als_cats[i], width, bottom=bottom_als, 
               color=color, alpha=0.8, edgecolor='black', linewidth=0.5)
-        # Control bar
         ax.bar(1, ctrl_cats[i], width, bottom=bottom_ctrl, 
               color=color, alpha=0.8, label=cat, edgecolor='black', linewidth=0.5)
         
@@ -164,8 +162,12 @@ def plot_position_distributions(df, output_dir):
                     if c.startswith('coverage_bin_') 
                     and c != 'coverage_bin_size']
     
-    # Sort numerically (they should already be in order, but be safe)
+    # Sort numerically
     coverage_cols = sorted(coverage_cols, key=lambda x: int(x.split('_')[-1]))
+    
+    if len(coverage_cols) == 0:
+        print("  ⚠️  No coverage bins found")
+        return
     
     print(f"  Using {len(coverage_cols)} coverage bins")
     
@@ -207,7 +209,7 @@ def plot_motif_distribution(df, output_dir):
     Generate end motif distribution plot (REQUIRED).
     
     Shows:
-    - Top 20 motif frequencies (ALS vs Control)
+    - Top 20 most frequent k-mer proportions (ALS vs Control)
     - Motif diversity comparison
     """
     print("\n3. End Motif Distribution")
@@ -217,34 +219,48 @@ def plot_motif_distribution(df, output_dir):
     
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Plot 1: Top 10 motif frequencies
+    # ========================================================================
+    # Plot 1: Top 20 k-mers (averaged across samples)
+    # ========================================================================
     ax = axes[0]
     
-    # Get top 10 motif columns
-    motif_freq_cols = [f'motif_top{i+1}_freq' for i in range(10)]
-    motif_kmer_cols = [f'motif_top{i+1}_kmer' for i in range(10)]
+    # Get all k-mer columns
+    kmer_cols = [c for c in df.columns if c.startswith('kmer_')]
     
-    # Get most common kmers (mode)
-    top_kmers = [df[f'motif_top{i+1}_kmer'].mode()[0] for i in range(10)]
+    if len(kmer_cols) == 0:
+        print("  ⚠️  No k-mer columns found")
+        return
     
-    # Calculate mean frequencies
-    als_freqs = df[df['disease_status'] == 'als'][motif_freq_cols].mean().values
-    ctrl_freqs = df[df['disease_status'] == 'ctrl'][motif_freq_cols].mean().values
+    # Calculate mean frequency for each k-mer across all samples
+    kmer_means = df[kmer_cols].mean().sort_values(ascending=False)
     
-    x = np.arange(10)
+    # Get top 20
+    top_20_kmers = kmer_means.head(20).index.tolist()
+    
+    # Calculate means for ALS vs Control
+    als_means = df[df['disease_status'] == 'als'][top_20_kmers].mean()
+    ctrl_means = df[df['disease_status'] == 'ctrl'][top_20_kmers].mean()
+    
+    x = np.arange(20)
     width = 0.35
     
-    ax.bar(x - width/2, als_freqs, width, label='ALS', color='red', alpha=0.7)
-    ax.bar(x + width/2, ctrl_freqs, width, label='Control', color='blue', alpha=0.7)
+    # Clean k-mer names for display (remove 'kmer_' prefix)
+    kmer_names = [k.replace('kmer_', '') for k in top_20_kmers]
+    
+    ax.bar(x - width/2, als_means.values, width, label='ALS', color='red', alpha=0.7)
+    ax.bar(x + width/2, ctrl_means.values, width, label='Control', color='blue', alpha=0.7)
+    
     ax.set_xlabel('End Motif (4-mer)', fontsize=12)
     ax.set_ylabel('Frequency (%)', fontsize=12)
-    ax.set_title('Top 10 End Motif Frequencies', fontsize=13, fontweight='bold')
+    ax.set_title('Top 20 End Motif Frequencies', fontsize=13, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels(top_kmers, rotation=45, ha='right')
+    ax.set_xticklabels(kmer_names, rotation=45, ha='right', fontsize=9)
     ax.legend()
     ax.grid(True, alpha=0.3, axis='y')
     
+    # ========================================================================
     # Plot 2: Motif diversity
+    # ========================================================================
     ax = axes[1]
     
     if 'motif_diversity' in df.columns:
@@ -254,6 +270,10 @@ def plot_motif_distribution(df, output_dir):
         ax.set_ylabel('Shannon Entropy (bits)')
         plt.sca(ax)
         plt.xticks(rotation=0)
+    else:
+        ax.text(0.5, 0.5, 'Motif diversity not available', 
+               ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        ax.set_title('Motif Diversity', fontsize=13, fontweight='bold')
     
     plt.tight_layout()
     output_file = output_dir / '03_end_motif_distribution.png'

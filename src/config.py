@@ -79,85 +79,101 @@ QC_SAMPLE_SIZE = 10000  # Number of reads to sample for conversion check
 
 
 # ============================================================================
-# MODULE 2: Feature Extraction
+# MODULE 2: Feature Extraction (GOLD STANDARD)
 # ============================================================================
 """
 Module 2 Overview:
-    - Extract fragment size features (full distributions, size bins)
-    - Extract fragment start/end positions 
-    - Extract end motif features (4-mer frequencies from read ends)
-    - Extract methylation features (CpG methylation from XM tags)
-    - Extract REGIONAL methylation features (methylation per genomic bin)
+    Extract features using gold-standard cfDNA fragmentomics and WGBS methods.
+    
+    FRAGMENTOMICS FEATURES (cfDNA standard):
+    - Fragment size distribution (summary stats, ratios, size bins)
+    - Fragment end motifs (top 20 most discriminative 4-mers, diversity)
+    - Coverage profile (100 kb bins across chr21)
+    
+    METHYLATION FEATURES (WGBS standard):
+    - Global CpG methylation (mean, variance, distribution)
+    - Regional methylation (100 kb bins with ≥20 CpG sites)
+    
+    Based on published methods:
+    - Fragmentomics: Cristiano et al. 2019 (Nature), Snyder et al. 2016 (Cell)
+    - Methylation: Loyfer et al. 2023 (Nature), Sun et al. 2015 (Genome Biol)
     
 Input:
     - sample_manifest.csv from Module 0
     - BAM files
     
 Output:
-    - all_features.csv in data/processed/
-    - Individual feature files for inspection
+    - fragmentomics_features.csv (~509 features per sample)
+    - methylation_features.csv (~475 features per sample)
+    - all_features.csv (merged, ~984 features per sample)
 """
 
 # Feature extraction parameters
-KMER_SIZE = 4  # Size of k-mers for end motif analysis (4-mers = 256 features)
+KMER_SIZE = 4  # 4-mers for end motifs
+N_TOP_KMERS = 20  # Keep only top 20 most discriminative motifs (instead of all 256 combinations)
 
-# Fragment size bins for feature engineering
-FRAGMENT_SIZE_BINS = {
-    'very_short': (50, 100),      # < 100 bp
-    'short': (100, 150),          # 100-150 bp
-    'nucleosomal': (150, 200),    # 150-200 bp (mono-nucleosome)
-    'dinucleosomal': (200, 400),  # 200-400 bp (di-nucleosome)
-    'long': (400, 1000)           # > 400 bp
+# Fragment size categories (based on nucleosome biology)
+FRAGMENT_SIZE_CATEGORIES = {
+    'very_short': (50, 100),       # Nucleosome-free DNA
+    'short': (100, 150),           # Short nucleosomal
+    'mononucleosomal': (150, 220), # Mono-nucleosome (peak ~167 bp)
+    'dinucleosomal': (220, 400),   # Di-nucleosome
+    'long': (400, 1000)            # Tri+ nucleosome or genomic DNA
 }
 
-# Genomic binning  
-# Specify BIN SIZE (not number of bins) - number is calculated from chr length
-POSITION_BIN_SIZE = 500           # 500 bp bins for coverage/fragmentomics 
-METHYLATION_BIN_SIZE = 500        # 500 bp bins for regional methylation 
-MIN_CPG_PER_BIN = 3               # Minimum CpG sites required per bin 
+# Genomic binning (GOLD STANDARD - 100 kb resolution)
+FRAGMENTOMICS_BIN_SIZE = 100_000  # 100 kb bins for coverage analysis
+METHYLATION_BIN_SIZE = 100_000    # 100 kb bins for regional methylation
+MIN_CPG_PER_BIN = 20              # Minimum CpG sites for robust methylation estimate
 
-# Note: Number of bins is calculated as ceil(chr_length / bin_size)
-# Chromosome length obtained  from BAM file
-# For chr21 (~46.7 Mb):
-#   500 bp bins → ~93,420 bins
-#   Expected CpGs per bin: ~5 CpGs (with ~1 CpG per 100 bp)
+# For chr21 (~46.7 Mb with 100 kb bins):
+#   Expected bins: ~467
+#   Expected CpGs per bin: ~1,000-10,000 (robust estimates)
+
+# Methylation distribution thresholds
+HIGHLY_METHYLATED_THRESHOLD = 0.8   # CpG methylation > 80%
+LOWLY_METHYLATED_THRESHOLD = 0.2    # CpG methylation < 20%
 
 # Output files
-FRAGMENT_FEATURES = PROCESSED_DIR / "fragment_features.csv"
-POSITION_FEATURES = PROCESSED_DIR / "position_features.csv"
-MOTIF_FEATURES = PROCESSED_DIR / "motif_features.csv"
-METHYLATION_FEATURES = PROCESSED_DIR / "methylation_features.csv"
-REGIONAL_METHYLATION_FEATURES = PROCESSED_DIR / "regional_methylation_features.csv"
+FRAGMENTOMICS_FEATURES = PROCESSED_DIR / "fragmentomics_features.csv"
+METHYLATION_FEATURES_FILE = PROCESSED_DIR / "methylation_features.csv"
 ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
 # ============================================================================
-# MODULE 3: Exploratory Analysis & Visualization
+# MODULE 3: Visualization & Batch Effect Assessment
 # ============================================================================
 """
 Module 3 Overview:
-    - Generate required plots
-    - Perform exploratory data analysis (EDA)
-    - Assess batch effects
-    - PCA and clustering analysis
+    Generate required plots and assess batch effects.
+    
+    REQUIRED ASSIGNMENT PLOTS:
+    1. Fragment length distribution
+    2. Start and end position distributions
+    3. End motif distribution
+    4. Methylation analysis
+    
+    BATCH EFFECT ASSESSMENT:
+    - Test for batch effects in fragmentomics features
+    - Test for batch effects in methylation features
+    - Check for confounding between batch and disease
     
 Input:
     - all_features.csv from Module 2
-    - qc_metrics.csv from Module 1
+    - fragmentomics_features.csv from Module 2
+    - methylation_features.csv from Module 2
     
 Output:
-    - Required plots: fragment size, positions, motifs, methylation
-    - Exploratory analysis plots: PCA, correlation heatmaps, clustering
-    - Summary statistics tables
+    - results/figures/required_plots/ (assignment plots)
+    - results/figures/batch_effects/ (batch assessment plots)
+    - results/tables/batch_effect_tests.csv (statistical tests)
 """
 
 # Figure output directories
-VIZ_FIGURES_DIR = FIGURES_DIR / "visualization"
-EDA_FIGURES_DIR = FIGURES_DIR / "eda" # Exploratory Data Analysis
+REQUIRED_PLOTS_DIR = FIGURES_DIR / "required_plots"
+BATCH_EFFECTS_DIR = FIGURES_DIR / "batch_effects"
 
 # Summary tables
-SUMMARY_TABLES_DIR = RESULTS_DIR / "tables"
-FEATURE_SUMMARY = SUMMARY_TABLES_DIR / "feature_summary_statistics.csv"
-UNIVARIATE_TESTS = SUMMARY_TABLES_DIR / "univariate_comparisons.csv"
+BATCH_EFFECT_TESTS = SUMMARY_TABLES_DIR / "batch_effect_tests.csv"
 
 # ============================================================================
 # Test Configuration

@@ -175,42 +175,57 @@ BATCH_EFFECTS_FILE = RESULTS_DIR / "tables" / "batch_effects_summary.csv"
 # ============================================================================
 """
 Module 4 Overview:
-    Perform PCA separately on fragmentomics and methylation features.
-    Select top discriminative features for classification.
+    Perform PCA and feature selection separately on fragmentomics and methylation.
+    Use DISCOVERY SET ONLY (n=8) to avoid data leakage.
     
-    PCA Strategy:
-    - Fragmentomics PCA: Fragment size + motifs + coverage (filter low variance)
-    - Methylation PCA: Global + regional bins (filter low variance)
+    Four Analyses:
+    1. High-Variance Fragmentomics (K-mers)
+    2. Discriminative Fragmentomics (K-mers, ALS vs Control)
+    3. High-Variance Methylation (Regional bins)
+    4. Discriminative Methylation (Regional bins, ALS vs Control)
     
-    Feature Selection:
-    - Keep top variable features from each modality
-    - Combine for final feature set
+    Strategy:
+    - Split data: Discovery (n=8) for feature selection, Validation (n=14) locked
+    - Filter features: ≥25% sample coverage (≥2/8 samples)
+    - Select top features: 30 per analysis
+    - PCA: Visualize separation by disease and batch
+    - Compare: Which feature set best separates ALS vs Control?
     
 Input:
     - all_features.csv from Module 2
     
 Output:
-    - PCA plots (fragmentomics and methylation separately)
-    - selected_features.csv (final feature set for classification)
-    - feature_importance.csv (ranking of features)
+    - 4 PCA plots (fragmentomics/methylation × high-variance/discriminative)
+    - Feature rankings for each analysis
+    - selected_features.csv (best feature set for classification)
+    - pca_comparison_summary.csv
 """
 
-# PCA parameters
-N_PCA_COMPONENTS = 30  # Number of PCs to compute
-MIN_VARIANCE_THRESHOLD = 0.01  # Minimum variance to keep feature (1%)
+# Discovery/Validation split
+DISCOVERY_BATCH = 'discovery'
+VALIDATION_BATCH = 'validation'
 
-# Feature selection for high-dimensional bins
-MIN_SAMPLE_COVERAGE = 0.5  # Feature must have data in ≥50% of samples
-N_TOP_VARIABLE_BINS = 200  # Keep top 100 most variable bins per modality
+# Feature filtering (for small n=8)
+MIN_SAMPLE_COVERAGE = 0.25  # Feature must have data in ≥25% of samples (≥2/8)
+MIN_VARIANCE_THRESHOLD = 0.001  # Minimum variance to keep feature
 
-# Final feature selection
-N_TOP_FEATURES_FRAGMENTOMICS = 50  # Top fragmentomics features
-N_TOP_FEATURES_METHYLATION = 50    # Top methylation features
+# Feature selection counts
+N_TOP_FEATURES_PER_ANALYSIS = 30  # Top 30 features per analysis (conservative for n=8)
+N_PCA_COMPONENTS = 8  # Maximum PCs to compute (limited by n=8 samples)
 
 # Output files
 PCA_FIGURES_DIR = FIGURES_DIR / "pca"
+FEATURE_RANKINGS_DIR = RESULTS_DIR / "tables" / "feature_rankings"
+
+# Feature ranking files (one per analysis)
+FRAG_HIGHVAR_FEATURES = FEATURE_RANKINGS_DIR / "fragmentomics_high_variance.csv"
+FRAG_DISCRIM_FEATURES = FEATURE_RANKINGS_DIR / "fragmentomics_discriminative.csv"
+METH_HIGHVAR_FEATURES = FEATURE_RANKINGS_DIR / "methylation_high_variance.csv"
+METH_DISCRIM_FEATURES = FEATURE_RANKINGS_DIR / "methylation_discriminative.csv"
+
+# Final outputs
 SELECTED_FEATURES_FILE = PROCESSED_DIR / "selected_features.csv"
-FEATURE_IMPORTANCE_FILE = RESULTS_DIR / "tables" / "feature_importance.csv"
+PCA_COMPARISON_FILE = RESULTS_DIR / "tables" / "pca_comparison_summary.csv"
 
 # ============================================================================
 # Test Configuration

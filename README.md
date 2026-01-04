@@ -98,8 +98,9 @@ wgbs_classifier/
 │   └── exploratory/                  # Exploration 
 │       ├── 01_setup_qc.ipynb        
 │       ├── 02_feature_extraction.ipynb
-│       ├── 03_model_exploration.ipynb     
-│       └── 04_final_validation.ipynb      
+│       ├── 03_visualization.ipynb
+│       ├── 04_model_exploration.ipynb     
+│       └── 05_final_validation.ipynb      
 │
 ├── data/
 │   ├── processed/

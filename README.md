@@ -25,7 +25,7 @@ python -c "import pysam, pandas, sklearn; print('✓ Installation successful')"
 ### Run Complete Pipeline (automated)
 ```bash
 python scripts/run_pipeline.py
-
+```
 ---
 
 ## 📊 Key Results

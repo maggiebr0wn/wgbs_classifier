@@ -85,16 +85,17 @@ wgbs_classifier/
 │   └── run_pipeline.py                # Automated end-to-end 
 │
 ├── src/                              
-│   ├── 01_data_loader.py             
-│   ├── 02_qc.py                      
-│   ├── 03_feature_extraction.py      
-│   ├── 04_classification.py          # RF classifier only
+│   ├── data_loader.py                 # Module 0             
+│   ├── qc.py                          # Module 1                       
+│   ├── feature_extraction.py          # Module 2       
+│   ├── visualization.py               # Module 3     
+│   ├── classification.py              # Module 4; RF classifier only
 │   └── config.py
 │
 ├── notebooks/
-│   ├── complete_analysis.ipynb       # Clean walkthrough (best model)
+│   ├── complete_analysis.ipynb       # Walkthrough
 │   │
-│   └── exploratory/                  # Exploration journey
+│   └── exploratory/                  # Exploration 
 │       ├── 01_setup_qc.ipynb        
 │       ├── 02_feature_extraction.ipynb
 │       ├── 03_model_exploration.ipynb     

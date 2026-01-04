@@ -1,39 +1,17 @@
 """
-Module 4: PCA & Feature Selection
+Module 4: Feature Selection, Training & Validation (Consolidated)
 
-Purpose:
-    Perform PCA and feature selection on DISCOVERY SET ONLY (n=8).
-    Compare 4 feature selection strategies to find best discriminative features.
-    
-Four Analyses:
-    1. High-Variance Fragmentomics (K-mers)
-    2. Discriminative Fragmentomics (K-mers)
-    3. High-Variance Methylation (Regional bins)
-    4. Discriminative Methylation (Regional bins)
-    
-Strategy:
-    - Use only Discovery set (n=8: 4 ALS, 4 Control) for all feature selection
-    - Validation set (n=14) is locked until Module 6
-    - Filter features by sample coverage (present in ≥25%)
-    - Select top 30 features per analysis
-    - Perform PCA to visualize separation
-    - Compare analyses to select best feature set for classification
-
-Input:
-    - all_features.csv from Module 2
-
-Output:
-    - 4 PCA plots, assess disease separation
-    - 4 feature ranking tables
-    - Final selected feature set for Module 5
+ONE SCRIPT that does everything:
+1. Feature selection (choose LASSO or Random Forest)
+2. Train model on discovery set
+3. LOO cross-validation on discovery
+4. Test on validation set
+5. Generate all visualizations
+6. Save results
 
 Usage:
-    As a script:
-        python src/feature_selection.py
-    
-    In a notebook:
-        from src.feature_selection import run_module_4
-        results = run_module_4()
+    python feature_selection_consolidated.py --model lasso
+    python feature_selection_consolidated.py --model rf
 """
 
 import pandas as pd
@@ -41,706 +19,536 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from scipy.stats import mannwhitneyu
+import pickle
+import argparse
 import warnings
 warnings.filterwarnings('ignore')
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import LeaveOneOut
+from sklearn.metrics import (
+    roc_auc_score, roc_curve, accuracy_score, 
+    precision_score, recall_score, f1_score, confusion_matrix
+)
 
 # Import configuration
 from src.config import (
     ALL_FEATURES,
-    PCA_FIGURES_DIR,
-    FEATURE_RANKINGS_DIR,
-    SELECTED_FEATURES_FILE,
-    PCA_COMPARISON_FILE,
     DISCOVERY_BATCH,
     VALIDATION_BATCH,
-    MIN_SAMPLE_COVERAGE,
-    MIN_VARIANCE_THRESHOLD,
-    N_TOP_FEATURES_PER_ANALYSIS,
-    N_PCA_COMPONENTS,
-    FRAG_HIGHVAR_FEATURES,
-    FRAG_DISCRIM_FEATURES,
-    METH_HIGHVAR_FEATURES,
-    METH_DISCRIM_FEATURES,
+    METHYLATION_AGGREGATION_SIZE,
+    FEATURE_SELECTION_DIR,
+    FIGURES_DIR,
     RESULTS_DIR
 )
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+# Feature selection parameters
+MIN_SAMPLE_COVERAGE = 0.25
+MIN_VARIANCE = 0.0001
+N_TOP_FEATURES = 20  # Total features to select
+
+# LASSO parameters
+LASSO_C_VALUES = [0.0001, 0.001, 0.01, 0.1, 0.5, 1.0]
+
+# Random Forest parameters
+RF_PARAMS = {
+    'n_estimators': 500,
+    'max_depth': 3,
+    'min_samples_split': 2,
+    'min_samples_leaf': 1,
+    'max_features': 'sqrt',
+    'random_state': 42,
+    'class_weight': 'balanced',
+    'n_jobs': -1
+}
+
 
 # ============================================================================
-# Data Preparation
+# STEP 1: LOAD DATA
 # ============================================================================
 
-def load_and_split_data(filepath):
-    """
-    Load features and split into discovery/validation.
+def load_data():
+    """Load and split data into discovery/validation."""
+    print("\n" + "="*70)
+    print("LOADING DATA")
+    print("="*70)
     
-    CRITICAL: Only discovery set is used for feature selection!
-    
-    Parameters
-    ----------
-    filepath : Path
-        Path to all_features.csv
-        
-    Returns
-    -------
-    tuple
-        (discovery_df, validation_df, all_df)
-    """
-    print("\nLoading and splitting data:")
-    print("-" * 70)
-    
-    # Load all features
-    df = pd.read_csv(filepath)
-    print(f"Total samples: {len(df)}")
-    
-    # Split by batch
+    df = pd.read_csv(ALL_FEATURES)
     discovery_df = df[df['batch'] == DISCOVERY_BATCH].copy()
     validation_df = df[df['batch'] == VALIDATION_BATCH].copy()
     
-    print(f"\nDiscovery set: {len(discovery_df)} samples")
-    print(f"  ALS: {len(discovery_df[discovery_df['disease_status'] == 'als'])}")
-    print(f"  Control: {len(discovery_df[discovery_df['disease_status'] == 'ctrl'])}")
+    print(f"\nDiscovery: {len(discovery_df)} samples "
+          f"({(discovery_df['disease_status']=='als').sum()} ALS, "
+          f"{(discovery_df['disease_status']=='ctrl').sum()} Control)")
+    print(f"Validation: {len(validation_df)} samples "
+          f"({(validation_df['disease_status']=='als').sum()} ALS, "
+          f"{(validation_df['disease_status']=='ctrl').sum()} Control)")
     
-    print(f"\nValidation set: {len(validation_df)} samples (LOCKED until Module 6)")
-    print(f"  ALS: {len(validation_df[validation_df['disease_status'] == 'als'])}")
-    print(f"  Control: {len(validation_df[validation_df['disease_status'] == 'ctrl'])}")
-    
-    return discovery_df, validation_df, df
+    return discovery_df, validation_df
 
 
 # ============================================================================
-# Feature Filtering
+# STEP 2: EXTRACT & FILTER FEATURES
 # ============================================================================
 
-def filter_features_by_coverage(df, feature_cols, min_coverage=MIN_SAMPLE_COVERAGE):
-    """
-    Keep only features with sufficient sample coverage.
+def extract_features(discovery_df):
+    """Extract and filter all features."""
+    print("\n" + "="*70)
+    print("EXTRACTING FEATURES")
+    print("="*70)
     
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Discovery set (n=8)
-    feature_cols : list
-        Feature columns to filter
-    min_coverage : float
-        Minimum proportion of samples with data (0-1)
-        
-    Returns
-    -------
-    list
-        Filtered feature columns
-    """
-    n_samples = len(df)
-    min_samples = int(np.ceil(n_samples * min_coverage))
+    # Fragmentomics features
+    frag_patterns = ['frag_mean', 'frag_median', 'frag_std', 'frag_iqr', 
+                     'frag_cv', 'frag_q25', 'frag_q50', 'frag_q75',
+                     'frag_skewness', 'frag_kurtosis',
+                     'frag_pct_', 'frag_ratio_']
     
-    # Count non-NaN values per feature
-    coverage = df[feature_cols].notna().sum()
+    frag_cols = []
+    for pattern in frag_patterns:
+        frag_cols.extend([c for c in discovery_df.columns if pattern in c])
+    frag_cols = sorted(set(frag_cols))
     
-    # Keep features with sufficient coverage
-    sufficient_coverage = coverage[coverage >= min_samples].index.tolist()
+    # Methylation features (aggregate to 500kb)
+    print(f"\nAggregating methylation to 500kb bins...")
+    meth_cols_100kb = [c for c in discovery_df.columns 
+                       if c.startswith('regional_meth_bin_') 
+                       and c.replace('regional_meth_bin_', '').isdigit()]
     
-    print(f"  Coverage filter (≥{min_samples}/{n_samples} samples):")
-    print(f"    Input: {len(feature_cols)} features")
-    print(f"    Output: {len(sufficient_coverage)} features")
-    print(f"    Removed: {len(feature_cols) - len(sufficient_coverage)} features")
+    aggregation_factor = METHYLATION_AGGREGATION_SIZE // 100_000
+    aggregated_features = {}
     
-    return sufficient_coverage
-
-
-def filter_low_variance(df, feature_cols, min_var=MIN_VARIANCE_THRESHOLD):
-    """
-    Remove features with very low variance.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Discovery set
-    feature_cols : list
-        Features to filter
-    min_var : float
-        Minimum variance threshold
-        
-    Returns
-    -------
-    list
-        Features with sufficient variance
-    """
-    variances = df[feature_cols].var()
-    high_var = variances[variances >= min_var].index.tolist()
-    
-    print(f"  Variance filter (var ≥ {min_var}):")
-    print(f"    Input: {len(feature_cols)} features")
-    print(f"    Output: {len(high_var)} features")
-    print(f"    Removed: {len(feature_cols) - len(high_var)} features")
-    
-    return high_var
-
-
-# ============================================================================
-# Feature Selection Strategies
-# ============================================================================
-
-def select_high_variance_features(df, feature_cols, n_top=N_TOP_FEATURES_PER_ANALYSIS):
-    """
-    Select features with highest variance.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Discovery set
-    feature_cols : list
-        Features to rank
-    n_top : int
-        Number of top features to select
-        
-    Returns
-    -------
-    pd.DataFrame
-        Ranking table with variance scores
-    """
-    print(f"\n  Selecting top {n_top} high-variance features...")
-    
-    results = []
-    
-    for feat in feature_cols:
-        vals = df[feat].dropna()
-        
-        if len(vals) > 1:
-            variance = vals.var()
+    for sample_idx in discovery_df.index:
+        sample_data = {}
+        for meth_col in meth_cols_100kb:
+            bin_num = int(meth_col.replace('regional_meth_bin_', ''))
+            agg_bin = bin_num // aggregation_factor
+            agg_col_name = f'meth_agg_{agg_bin}'
             
-            results.append({
-                'feature': feat,
-                'variance': variance,
-                'mean': vals.mean(),
-                'std': vals.std(),
-                'n_samples': len(vals)
-            })
-    
-    # Rank by variance
-    results_df = pd.DataFrame(results).sort_values('variance', ascending=False)
-    
-    print(f"    Ranked {len(results_df)} features by variance")
-    print(f"    Top feature: {results_df.iloc[0]['feature']} (var={results_df.iloc[0]['variance']:.4f})")
-    
-    return results_df
-
-
-def select_discriminative_features(df, feature_cols, n_top=N_TOP_FEATURES_PER_ANALYSIS):
-    """
-    Select features that discriminate ALS vs Control (Mann-Whitney U test).
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Discovery set
-    feature_cols : list
-        Features to test
-    n_top : int
-        Number of top features to select
-        
-    Returns
-    -------
-    pd.DataFrame
-        Ranking table with p-values and effect sizes
-    """
-    print(f"\n  Selecting top {n_top} discriminative features...")
-    
-    results = []
-    
-    for feat in feature_cols:
-        als_vals = df[df['disease_status'] == 'als'][feat].dropna()
-        ctrl_vals = df[df['disease_status'] == 'ctrl'][feat].dropna()
-        
-        if len(als_vals) >= 2 and len(ctrl_vals) >= 2:
-            # Mann-Whitney U test
-            stat, p_val = mannwhitneyu(als_vals, ctrl_vals)
+            if agg_col_name not in sample_data:
+                sample_data[agg_col_name] = []
             
-            # Effect size (difference in means)
-            effect_size = abs(als_vals.mean() - ctrl_vals.mean())
-            
-            results.append({
-                'feature': feat,
-                'p_value': p_val,
-                'effect_size': effect_size,
-                'als_mean': als_vals.mean(),
-                'ctrl_mean': ctrl_vals.mean(),
-                'als_std': als_vals.std(),
-                'ctrl_std': ctrl_vals.std(),
-                'n_als': len(als_vals),
-                'n_ctrl': len(ctrl_vals)
-            })
+            value = discovery_df.loc[sample_idx, meth_col]
+            if pd.notna(value):
+                sample_data[agg_col_name].append(value)
+        
+        for agg_col, values in sample_data.items():
+            if len(values) >= 1:
+                aggregated_features.setdefault(agg_col, {})[sample_idx] = np.mean(values)
     
-    # Rank by p-value
-    results_df = pd.DataFrame(results).sort_values('p_value')
+    # Create aggregated methylation dataframe
+    meth_agg_df = pd.DataFrame(aggregated_features)
+    meth_cols = list(meth_agg_df.columns)
     
-    n_sig = (results_df['p_value'] < 0.05).sum()
+    # Combine features
+    feature_df = discovery_df[['sample_id', 'disease_status', 'batch', 'age']].copy()
+    for col in frag_cols:
+        feature_df[col] = discovery_df[col]
+    for col in meth_cols:
+        if col in meth_agg_df.columns:
+            feature_df[col] = meth_agg_df[col]
     
-    print(f"    Ranked {len(results_df)} features by discriminative power")
-    print(f"    Significant (p<0.05): {n_sig}/{len(results_df)}")
-    print(f"    Top feature: {results_df.iloc[0]['feature']} (p={results_df.iloc[0]['p_value']:.4f})")
+    # Filter by coverage
+    n_samples = len(discovery_df)
+    min_samples = int(np.ceil(n_samples * MIN_SAMPLE_COVERAGE))
     
-    return results_df
+    all_feature_cols = frag_cols + meth_cols
+    coverage = feature_df[all_feature_cols].notna().sum()
+    passing_coverage = coverage[coverage >= min_samples].index.tolist()
+    
+    # Filter by variance
+    variances = feature_df[passing_coverage].var()
+    passing_variance = variances[variances >= MIN_VARIANCE].index.tolist()
+    
+    print(f"\nFragmentomics: {len(frag_cols)} → {len([f for f in passing_variance if f in frag_cols])}")
+    print(f"Methylation: {len(meth_cols)} → {len([f for f in passing_variance if f in meth_cols])}")
+    print(f"Total features: {len(passing_variance)}")
+    
+    return feature_df, passing_variance, meth_agg_df
 
 
 # ============================================================================
-# PCA Analysis
+# STEP 3: FEATURE SELECTION
 # ============================================================================
 
-def perform_pca_analysis(df, feature_cols, analysis_name, output_dir):
-    """
-    Perform PCA and generate visualization.
+def select_features_lasso(feature_df, feature_cols):
+    """Select features using LASSO regularization."""
+    print("\n" + "="*70)
+    print("FEATURE SELECTION: LASSO")
+    print("="*70)
     
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Discovery set (n=8)
-    feature_cols : list
-        Features to use for PCA
-    analysis_name : str
-        Name of analysis (for plot title)
-    output_dir : Path
-        Output directory for plot
-        
-    Returns
-    -------
-    dict
-        PCA results including variance explained
-    """
-    print(f"\n  Performing PCA...")
+    X = feature_df[feature_cols].fillna(feature_df[feature_cols].median()).values
+    y = (feature_df['disease_status'] == 'als').astype(int).values
     
-    # Prepare data
-    X = df[feature_cols].copy()
-    
-    # Handle missing values (impute with median)
-    X = X.fillna(X.median())
-    
-    # Standardize
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # PCA (max components = n_samples)
-    n_components = min(N_PCA_COMPONENTS, len(df), len(feature_cols))
-    pca = PCA(n_components=n_components)
-    X_pca = pca.fit_transform(X_scaled)
+    # Try different C values
+    best_n_features = 0
+    best_C = None
     
-    # Store results in dataframe
-    pca_df = pd.DataFrame(
-        X_pca,
-        columns=[f'PC{i+1}' for i in range(n_components)],
-        index=df.index
-    )
-    pca_df['disease_status'] = df['disease_status'].values
-    pca_df['sample_id'] = df['sample_id'].values
+    for C in LASSO_C_VALUES:
+        model = LogisticRegression(penalty='l1', solver='liblinear', C=C, max_iter=5000, random_state=42)
+        model.fit(X_scaled, y)
+        n_features = np.sum(model.coef_[0] != 0)
+        
+        if n_features > 0 and n_features <= N_TOP_FEATURES:
+            best_n_features = n_features
+            best_C = C
     
-    # Calculate variance explained
-    var_explained = pca.explained_variance_ratio_
-    pc1_var = var_explained[0] * 100
-    pc2_var = var_explained[1] * 100 if len(var_explained) > 1 else 0
-    total_var = (var_explained[0] + var_explained[1]) * 100 if len(var_explained) > 1 else pc1_var
+    # Train with best C
+    if best_C is None:
+        best_C = 1.0
     
-    print(f"    PCA computed: {len(feature_cols)} features → {n_components} PCs")
-    print(f"    PC1 variance: {pc1_var:.1f}%")
-    print(f"    PC2 variance: {pc2_var:.1f}%")
-    print(f"    PC1+PC2 total: {total_var:.1f}%")
+    model = LogisticRegression(penalty='l1', solver='liblinear', C=best_C, max_iter=5000, random_state=42)
+    model.fit(X_scaled, y)
     
-    # Generate plot
+    # Get selected features
+    coefs = model.coef_[0]
+    selected_idx = np.where(coefs != 0)[0]
+    selected_features = [feature_cols[i] for i in selected_idx]
+    
+    # If too few selected, add by absolute coefficient
+    if len(selected_features) < 5:
+        sorted_idx = np.argsort(np.abs(coefs))[::-1]
+        selected_features = [feature_cols[i] for i in sorted_idx[:N_TOP_FEATURES]]
+    
+    print(f"\nSelected {len(selected_features)} features (C={best_C})")
+    for feat in selected_features:
+        print(f"  - {feat}")
+    
+    return selected_features
+
+
+def select_features_rf(feature_df, feature_cols):
+    """Select features using Random Forest importance."""
+    print("\n" + "="*70)
+    print("FEATURE SELECTION: RANDOM FOREST")
+    print("="*70)
+    
+    X = feature_df[feature_cols].fillna(feature_df[feature_cols].median()).values
+    y = (feature_df['disease_status'] == 'als').astype(int).values
+    
+    rf = RandomForestClassifier(**RF_PARAMS)
+    rf.fit(X, y)
+    
+    importances = rf.feature_importances_
+    sorted_idx = np.argsort(importances)[::-1]
+    
+    selected_features = [feature_cols[i] for i in sorted_idx[:N_TOP_FEATURES]]
+    
+    print(f"\nSelected {len(selected_features)} features by importance")
+    for feat, idx in zip(selected_features, sorted_idx[:N_TOP_FEATURES]):
+        print(f"  - {feat}: {importances[idx]:.4f}")
+    
+    return selected_features
+
+
+# ============================================================================
+# STEP 4: TRAIN FINAL MODEL WITH LOO-CV
+# ============================================================================
+
+def train_with_loo(feature_df, selected_features, model_type='lasso'):
+    """Train final model with LOO cross-validation."""
+    print("\n" + "="*70)
+    print(f"TRAINING {model_type.upper()} WITH LOO-CV")
+    print("="*70)
+    
+    X = feature_df[selected_features].fillna(feature_df[selected_features].median()).values
+    y = (feature_df['disease_status'] == 'als').astype(int).values
+    
+    print(f"\nTraining: {X.shape[0]} samples × {X.shape[1]} features")
+    
+    # LOO Cross-validation
+    loo = LeaveOneOut()
+    loo_predictions = []
+    loo_true = []
+    
+    for train_idx, test_idx in loo.split(X):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        if model_type == 'lasso':
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+            
+            model = LogisticRegression(penalty='l1', solver='liblinear', C=1.0, max_iter=5000, random_state=42)
+            model.fit(X_train_scaled, y_train)
+            y_pred_proba = model.predict_proba(X_test_scaled)[0, 1]
+        else:  # rf
+            model = RandomForestClassifier(**RF_PARAMS)
+            model.fit(X_train, y_train)
+            y_pred_proba = model.predict_proba(X_test)[0, 1]
+        
+        loo_predictions.append(y_pred_proba)
+        loo_true.append(y_test[0])
+    
+    loo_predictions = np.array(loo_predictions)
+    loo_true = np.array(loo_true)
+    
+    try:
+        loo_auc = roc_auc_score(loo_true, loo_predictions)
+    except:
+        loo_auc = 0.5
+    
+    print(f"\nLOO-CV AUC: {loo_auc:.3f}")
+    
+    if loo_auc >= 0.95 and len(X) <= 10:
+        print("\n⚠️  WARNING: Very high LOO-CV AUC with small n!")
+        print("    This may indicate overfitting. Validation will tell.")
+    
+    # Train final model on all data
+    if model_type == 'lasso':
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        final_model = LogisticRegression(penalty='l1', solver='liblinear', C=1.0, max_iter=5000, random_state=42)
+        final_model.fit(X_scaled, y)
+        model_data = {'model': final_model, 'scaler': scaler}
+    else:
+        final_model = RandomForestClassifier(**RF_PARAMS)
+        final_model.fit(X, y)
+        model_data = {'model': final_model}
+    
+    model_data.update({
+        'selected_features': selected_features,
+        'loo_auc': loo_auc,
+        'model_type': model_type
+    })
+    
+    return model_data, loo_predictions, loo_true
+
+
+# ============================================================================
+# STEP 5: VALIDATE
+# ============================================================================
+
+def validate(validation_df, meth_agg_template_df, model_data):
+    """Test on validation set."""
+    print("\n" + "="*70)
+    print("VALIDATION TESTING")
+    print("="*70)
+    
+    selected_features = model_data['selected_features']
+    
+    # Prepare validation methylation aggregation
+    meth_cols_100kb = [c for c in validation_df.columns 
+                       if c.startswith('regional_meth_bin_') 
+                       and c.replace('regional_meth_bin_', '').isdigit()]
+    
+    aggregation_factor = METHYLATION_AGGREGATION_SIZE // 100_000
+    aggregated_features = {}
+    
+    for sample_idx in validation_df.index:
+        sample_data = {}
+        for meth_col in meth_cols_100kb:
+            bin_num = int(meth_col.replace('regional_meth_bin_', ''))
+            agg_bin = bin_num // aggregation_factor
+            agg_col_name = f'meth_agg_{agg_bin}'
+            
+            if agg_col_name not in sample_data:
+                sample_data[agg_col_name] = []
+            
+            value = validation_df.loc[sample_idx, meth_col]
+            if pd.notna(value):
+                sample_data[agg_col_name].append(value)
+        
+        for agg_col, values in sample_data.items():
+            if len(values) >= 1:
+                aggregated_features.setdefault(agg_col, {})[sample_idx] = np.mean(values)
+    
+    val_meth_df = pd.DataFrame(aggregated_features)
+    
+    # Build validation feature dataframe
+    val_feature_df = validation_df[['sample_id', 'disease_status', 'batch', 'age']].copy()
+    for feat in selected_features:
+        if feat in validation_df.columns:
+            val_feature_df[feat] = validation_df[feat]
+        elif feat in val_meth_df.columns:
+            val_feature_df[feat] = val_meth_df[feat]
+        else:
+            val_feature_df[feat] = np.nan
+    
+    X_val = val_feature_df[selected_features].fillna(val_feature_df[selected_features].median()).values
+    y_val = (validation_df['disease_status'] == 'als').astype(int).values
+    
+    # Predict
+    if model_data['model_type'] == 'lasso':
+        X_val_scaled = model_data['scaler'].transform(X_val)
+        y_pred_proba = model_data['model'].predict_proba(X_val_scaled)[:, 1]
+    else:
+        y_pred_proba = model_data['model'].predict_proba(X_val)[:, 1]
+    
+    try:
+        val_auc = roc_auc_score(y_val, y_pred_proba)
+    except:
+        val_auc = 0.5
+    
+    val_acc = accuracy_score(y_val, (y_pred_proba >= 0.5).astype(int))
+    
+    print(f"\nValidation AUC: {val_auc:.3f}")
+    print(f"Validation Accuracy: {val_acc:.3f}")
+    print(f"\nDiscovery LOO-CV: {model_data['loo_auc']:.3f}")
+    print(f"Difference: {val_auc - model_data['loo_auc']:+.3f}")
+    
+    # Interpretation
+    if val_auc >= 0.75:
+        print("\n✓ GOOD: Model generalizes!")
+    elif val_auc >= 0.60:
+        print("\n⚠ MODERATE: Weak generalization")
+    else:
+        print("\n✗ POOR: Does not generalize")
+    
+    predictions_df = validation_df[['sample_id', 'disease_status', 'age']].copy()
+    predictions_df['pred_proba'] = y_pred_proba
+    predictions_df['pred_label'] = (y_pred_proba >= 0.5).astype(int)
+    predictions_df['true_label'] = y_val
+    
+    return predictions_df, val_auc, val_acc
+
+
+# ============================================================================
+# STEP 6: VISUALIZE
+# ============================================================================
+
+def visualize_results(model_data, loo_true, loo_pred, val_predictions, val_auc):
+    """Create summary visualizations."""
+    print("\n" + "="*70)
+    print("CREATING VISUALIZATIONS")
+    print("="*70)
+    
+    output_dir = FIGURES_DIR / f"{model_data['model_type']}_results"
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # Figure: Discovery vs Validation
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Plot 1: PC1 vs PC2 colored by disease
-    ax = axes[0]
-    for status, color, marker in [('als', 'red', 'o'), ('ctrl', 'blue', 's')]:
-        mask = pca_df['disease_status'] == status
-        ax.scatter(pca_df.loc[mask, 'PC1'], pca_df.loc[mask, 'PC2'],
-                  c=color, label=status.upper(), alpha=0.8, s=150, 
-                  edgecolors='black', linewidths=1.5, marker=marker)
+    # Discovery LOO-CV ROC
+    fpr_loo, tpr_loo, _ = roc_curve(loo_true, loo_pred)
+    axes[0].plot(fpr_loo, tpr_loo, linewidth=2, label=f'AUC = {model_data["loo_auc"]:.3f}')
+    axes[0].plot([0, 1], [0, 1], 'k--', linewidth=1)
+    axes[0].set_xlabel('False Positive Rate')
+    axes[0].set_ylabel('True Positive Rate')
+    axes[0].set_title('Discovery LOO-CV')
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
     
-    ax.set_xlabel(f'PC1 ({pc1_var:.1f}% variance)', fontsize=12)
-    ax.set_ylabel(f'PC2 ({pc2_var:.1f}% variance)', fontsize=12)
-    ax.set_title(f'{analysis_name}\nDisease Status', fontsize=13, fontweight='bold')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
-    ax.axhline(0, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
-    ax.axvline(0, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
-    
-    # Add sample labels
-    for idx, row in pca_df.iterrows():
-        ax.annotate(row['sample_id'][-4:], 
-                   (row['PC1'], row['PC2']),
-                   fontsize=7, alpha=0.6, 
-                   xytext=(3, 3), textcoords='offset points')
-    
-    # Plot 2: Scree plot
-    ax = axes[1]
-    pcs = np.arange(1, len(var_explained) + 1)
-    ax.plot(pcs, var_explained * 100, 'o-', linewidth=2, markersize=8, color='purple')
-    ax.set_xlabel('Principal Component', fontsize=12)
-    ax.set_ylabel('Variance Explained (%)', fontsize=12)
-    ax.set_title('Scree Plot', fontsize=13, fontweight='bold')
-    ax.grid(True, alpha=0.3)
-    ax.set_xticks(pcs)
-    
-    # Add cumulative variance line
-    cumvar = np.cumsum(var_explained) * 100
-    ax2 = ax.twinx()
-    ax2.plot(pcs, cumvar, 's--', linewidth=1.5, markersize=6, 
-            color='orange', alpha=0.7, label='Cumulative')
-    ax2.set_ylabel('Cumulative Variance (%)', fontsize=12, color='orange')
-    ax2.tick_params(axis='y', labelcolor='orange')
-    ax2.set_ylim([0, 105])
+    # Validation ROC
+    y_true_val = val_predictions['true_label'].values
+    y_pred_val = val_predictions['pred_proba'].values
+    fpr_val, tpr_val, _ = roc_curve(y_true_val, y_pred_val)
+    axes[1].plot(fpr_val, tpr_val, linewidth=2, label=f'AUC = {val_auc:.3f}')
+    axes[1].plot([0, 1], [0, 1], 'k--', linewidth=1)
+    axes[1].set_xlabel('False Positive Rate')
+    axes[1].set_ylabel('True Positive Rate')
+    axes[1].set_title('Validation')
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    
-    # Save plot
-    filename = analysis_name.lower().replace(' ', '_').replace('(', '').replace(')', '')
-    output_file = output_dir / f'pca_{filename}.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / 'roc_curves.png', dpi=300, bbox_inches='tight')
+    print(f"\n✓ Saved: {output_dir / 'roc_curves.png'}")
     plt.close()
     
-    print(f"    ✓ Saved: {output_file.name}")
+    # Performance comparison
+    fig, ax = plt.subplots(figsize=(8, 6))
+    bars = ax.bar(['Discovery\n(LOO-CV)', 'Validation'], 
+                   [model_data['loo_auc'], val_auc],
+                   color=['steelblue', 'coral'], alpha=0.7)
+    ax.set_ylabel('AUC')
+    ax.set_title(f'{model_data["model_type"].upper()}: Discovery vs Validation')
+    ax.set_ylim([0, 1.1])
+    ax.axhline(0.5, color='gray', linestyle='--', alpha=0.5)
+    ax.grid(True, alpha=0.3, axis='y')
     
-    # Return results
-    return {
-        'analysis': analysis_name,
-        'n_features': len(feature_cols),
-        'n_components': n_components,
-        'pc1_variance': pc1_var,
-        'pc2_variance': pc2_var,
-        'total_variance': total_var,
-        'all_variance': var_explained,
-        'pca_df': pca_df
-    }
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 0.02,
+                f'{height:.3f}', ha='center', fontweight='bold')
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / 'performance_comparison.png', dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {output_dir / 'performance_comparison.png'}")
+    plt.close()
 
 
 # ============================================================================
-# Main Analysis Functions
+# MAIN PIPELINE
 # ============================================================================
 
-def analyze_fragmentomics_high_variance(discovery_df):
-    """
-    Analysis 1: High-variance K-mer features.
-    """
-    print("\n" + "=" * 70)
-    print("ANALYSIS 1: High-Variance Fragmentomics (K-mers)")
-    print("=" * 70)
+def run_pipeline(model_type='lasso'):
+    """Run complete pipeline."""
+    print("\n" + "="*70)
+    print(f"MODULE 4: {model_type.upper()} CLASSIFIER")
+    print("="*70)
     
-    # Get k-mer columns
-    kmer_cols = [c for c in discovery_df.columns if c.startswith('kmer_')]
+    # Step 1: Load data
+    discovery_df, validation_df = load_data()
     
-    print(f"\nStarting features: {len(kmer_cols)} k-mers")
+    # Step 2: Extract features
+    feature_df, all_features, meth_agg_df = extract_features(discovery_df)
     
-    # Filter by coverage
-    kmer_cols = filter_features_by_coverage(discovery_df, kmer_cols)
+    # Step 3: Select features
+    if model_type == 'lasso':
+        selected_features = select_features_lasso(feature_df, all_features)
+    else:
+        selected_features = select_features_rf(feature_df, all_features)
     
-    # Filter by variance
-    kmer_cols = filter_low_variance(discovery_df, kmer_cols)
+    # Step 4: Train with LOO-CV
+    model_data, loo_pred, loo_true = train_with_loo(feature_df, selected_features, model_type)
     
-    # Select high-variance features
-    rankings = select_high_variance_features(discovery_df, kmer_cols, N_TOP_FEATURES_PER_ANALYSIS)
+    # Step 5: Validate
+    val_predictions, val_auc, val_acc = validate(validation_df, meth_agg_df, model_data)
     
-    # Save rankings
-    FEATURE_RANKINGS_DIR.mkdir(parents=True, exist_ok=True)
-    rankings.to_csv(FRAG_HIGHVAR_FEATURES, index=False)
-    print(f"\n  ✓ Saved rankings to: {FRAG_HIGHVAR_FEATURES.name}")
+    # Step 6: Visualize
+    visualize_results(model_data, loo_true, loo_pred, val_predictions, val_auc)
     
-    # Select top features for PCA
-    top_features = rankings.head(N_TOP_FEATURES_PER_ANALYSIS)['feature'].tolist()
+    # Save everything
+    output_dir = RESULTS_DIR / model_type
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Perform PCA
-    pca_results = perform_pca_analysis(
-        discovery_df, 
-        top_features,
-        'Fragmentomics: High-Variance K-mers',
-        PCA_FIGURES_DIR
-    )
+    with open(output_dir / 'model.pkl', 'wb') as f:
+        pickle.dump(model_data, f)
     
-    return rankings, pca_results
-
-
-def analyze_fragmentomics_discriminative(discovery_df):
-    """
-    Analysis 2: Discriminative K-mer features (ALS vs Control).
-    """
-    print("\n" + "=" * 70)
-    print("ANALYSIS 2: Discriminative Fragmentomics (K-mers)")
-    print("=" * 70)
+    val_predictions.to_csv(output_dir / 'validation_predictions.csv', index=False)
     
-    # Get k-mer columns
-    kmer_cols = [c for c in discovery_df.columns if c.startswith('kmer_')]
+    # Summary
+    summary = pd.DataFrame([{
+        'model': model_type,
+        'n_features': len(selected_features),
+        'discovery_loo_auc': model_data['loo_auc'],
+        'validation_auc': val_auc,
+        'validation_accuracy': val_acc,
+        'performance_drop': model_data['loo_auc'] - val_auc
+    }])
+    summary.to_csv(output_dir / 'summary.csv', index=False)
     
-    print(f"\nStarting features: {len(kmer_cols)} k-mers")
-    
-    # Filter by coverage
-    kmer_cols = filter_features_by_coverage(discovery_df, kmer_cols)
-    
-    # Filter by variance
-    kmer_cols = filter_low_variance(discovery_df, kmer_cols)
-    
-    # Select discriminative features
-    rankings = select_discriminative_features(discovery_df, kmer_cols, N_TOP_FEATURES_PER_ANALYSIS)
-    
-    # Save rankings
-    rankings.to_csv(FRAG_DISCRIM_FEATURES, index=False)
-    print(f"\n  ✓ Saved rankings to: {FRAG_DISCRIM_FEATURES.name}")
-    
-    # Select top features for PCA
-    top_features = rankings.head(N_TOP_FEATURES_PER_ANALYSIS)['feature'].tolist()
-    
-    # Perform PCA
-    pca_results = perform_pca_analysis(
-        discovery_df,
-        top_features,
-        'Fragmentomics: Discriminative K-mers',
-        PCA_FIGURES_DIR
-    )
-    
-    return rankings, pca_results
-
-
-def analyze_methylation_high_variance(discovery_df):
-    """
-    Analysis 3: High-variance regional methylation bins.
-    """
-    print("\n" + "=" * 70)
-    print("ANALYSIS 3: High-Variance Methylation (Regional Bins)")
-    print("=" * 70)
-    
-    # Get regional methylation columns
-    meth_cols = [c for c in discovery_df.columns if c.startswith('regional_meth_bin_')]
-    
-    print(f"\nStarting features: {len(meth_cols)} regional methylation bins")
-    
-    # Filter by coverage
-    meth_cols = filter_features_by_coverage(discovery_df, meth_cols)
-    
-    # Filter by variance
-    meth_cols = filter_low_variance(discovery_df, meth_cols)
-    
-    # Select high-variance features
-    rankings = select_high_variance_features(discovery_df, meth_cols, N_TOP_FEATURES_PER_ANALYSIS)
-    
-    # Save rankings
-    rankings.to_csv(METH_HIGHVAR_FEATURES, index=False)
-    print(f"\n  ✓ Saved rankings to: {METH_HIGHVAR_FEATURES.name}")
-    
-    # Select top features for PCA
-    top_features = rankings.head(N_TOP_FEATURES_PER_ANALYSIS)['feature'].tolist()
-    
-    # Perform PCA
-    pca_results = perform_pca_analysis(
-        discovery_df,
-        top_features,
-        'Methylation: High-Variance Regional Bins',
-        PCA_FIGURES_DIR
-    )
-    
-    return rankings, pca_results
-
-
-def analyze_methylation_discriminative(discovery_df):
-    """
-    Analysis 4: Discriminative regional methylation bins (ALS vs Control).
-    """
-    print("\n" + "=" * 70)
-    print("ANALYSIS 4: Discriminative Methylation (Regional Bins)")
-    print("=" * 70)
-    
-    # Get regional methylation columns
-    meth_cols = [c for c in discovery_df.columns if c.startswith('regional_meth_bin_')]
-    
-    print(f"\nStarting features: {len(meth_cols)} regional methylation bins")
-    
-    # Filter by coverage
-    meth_cols = filter_features_by_coverage(discovery_df, meth_cols)
-    
-    # Filter by variance
-    meth_cols = filter_low_variance(discovery_df, meth_cols)
-    
-    # Select discriminative features
-    rankings = select_discriminative_features(discovery_df, meth_cols, N_TOP_FEATURES_PER_ANALYSIS)
-    
-    # Save rankings
-    rankings.to_csv(METH_DISCRIM_FEATURES, index=False)
-    print(f"\n  ✓ Saved rankings to: {METH_DISCRIM_FEATURES.name}")
-    
-    # Select top features for PCA
-    top_features = rankings.head(N_TOP_FEATURES_PER_ANALYSIS)['feature'].tolist()
-    
-    # Perform PCA
-    pca_results = perform_pca_analysis(
-        discovery_df,
-        top_features,
-        'Methylation: Discriminative Regional Bins',
-        PCA_FIGURES_DIR
-    )
-    
-    return rankings, pca_results
-
-
-# ============================================================================
-# Calculate Separation Metric
-# ============================================================================
-
-def calculate_separation_score(pca_df):
-    """
-    Calculate how well PC1+PC2 separates disease groups.
-    
-    Uses silhouette score to measure cluster separation.
-    Higher score = better separation between ALS and Control.
-    
-    Parameters
-    ----------
-    pca_df : pd.DataFrame
-        PCA results with PC1, PC2, and disease_status columns
-    
-    Returns
-    -------
-    float
-        Silhouette score (-1 to 1, higher is better)
-    """
-    from sklearn.metrics import silhouette_score
-    
-    # Encode disease status as binary labels
-    labels = (pca_df['disease_status'] == 'als').astype(int).values
-    
-    # Get PC1 and PC2 coordinates
-    X = pca_df[['PC1', 'PC2']].values
-    
-    # Calculate silhouette score (measures cluster separation)
-    score = silhouette_score(X, labels)
-    
-    return score
-
-# ============================================================================
-# Feature Set Utilities
-# ============================================================================
-
-def get_top_features_from_rankings(rankings, n_top):
-    """
-    Extract top-N feature names from a ranking DataFrame.
-    """
-    return rankings.head(n_top)['feature'].tolist()
-
-# ============================================================================
-# Comparison & Selection
-# ============================================================================
-
-def combine_feature_sets(discovery_df, all_rankings):
-    """
-    Combine top features from all 4 analyses into a single feature table.
-
-    Returns
-    -------
-    pd.DataFrame
-        Discovery-only feature matrix for classification
-    dict
-        Dictionary of feature sets by category
-    """
-    print("\n" + "=" * 70)
-    print("COMBINING FEATURE SETS FOR CLASSIFICATION")
-    print("=" * 70)
-
-    # Extract top features from each analysis
-    feature_sets = {
-        'frag_highvar': get_top_features_from_rankings(all_rankings[0], N_TOP_FEATURES_PER_ANALYSIS),
-        'frag_discriminative': get_top_features_from_rankings(all_rankings[1], N_TOP_FEATURES_PER_ANALYSIS),
-        'meth_highvar': get_top_features_from_rankings(all_rankings[2], N_TOP_FEATURES_PER_ANALYSIS),
-        'meth_discriminative': get_top_features_from_rankings(all_rankings[3], N_TOP_FEATURES_PER_ANALYSIS),
-    }
-
-    # Flatten and deduplicate
-    all_features = sorted(set(
-        feat for feats in feature_sets.values() for feat in feats
-    ))
-
-    print(f"\nFeature set summary:")
-    for k, v in feature_sets.items():
-        print(f"  {k}: {len(v)} features")
-
-    print(f"\nTotal unique features: {len(all_features)}")
-
-    # Metadata
-    metadata_cols = ['sample_id', 'disease_status', 'batch', 'age']
-
-    # Build final discovery-only table
-    final_df = discovery_df[metadata_cols + all_features].copy()
-
-    # Save combined feature table
-    final_df.to_csv(SELECTED_FEATURES_FILE, index=False)
-
-    print(f"\n✓ Combined feature table saved to: {SELECTED_FEATURES_FILE}")
-    print(f"  Shape: {final_df.shape}")
-    print(f"  Samples: {len(final_df)} (DISCOVERY ONLY)")
-
-    return final_df, feature_sets
-
-
-# ============================================================================
-# Main Pipeline
-# ============================================================================
-
-def run_module_4():
-    """
-    Run complete Module 4: PCA & Feature Selection pipeline.
-    
-    Returns
-    -------
-    dict
-        Results including selected features, rankings, and PCA results
-    """
-    print("\n" + "=" * 70)
-    print("MODULE 4: PCA & Feature Selection")
-    print("=" * 70)
-    print("\nCRITICAL: Using DISCOVERY SET ONLY (n=8)")
-    print("Validation set remains locked until Module 6")
-    
-    # Load and split data
-    discovery_df, validation_df, all_df = load_and_split_data(ALL_FEATURES)
-    
-    # Run 4 analyses
-    frag_hv_rankings, frag_hv_pca = analyze_fragmentomics_high_variance(discovery_df)
-    frag_disc_rankings, frag_disc_pca = analyze_fragmentomics_discriminative(discovery_df)
-    meth_hv_rankings, meth_hv_pca = analyze_methylation_high_variance(discovery_df)
-    meth_disc_rankings, meth_disc_pca = analyze_methylation_discriminative(discovery_df)
-    
-    # Collect results
-    all_rankings = [frag_hv_rankings, frag_disc_rankings, meth_hv_rankings, meth_disc_rankings]
-    all_pca_results = [frag_hv_pca, frag_disc_pca, meth_hv_pca, meth_disc_pca]
-    
-    # Compare and select best
-    final_features, feature_sets = combine_feature_sets(
-        discovery_df, all_rankings
-    )
-    
-    print("\n" + "=" * 70)
-    print("MODULE 4 COMPLETE")
-    print("=" * 70)
-    print(f"\n✓ Generated 4 PCA plots in: {PCA_FIGURES_DIR}")
-    print(f"✓ Selected features from ALL 4 analyses")
-    print(f"✓ Total features for classification: {final_features.shape[1] - 4}")
-    print(f"✓ Ready for Module 5: Classification")
-    print("\n" + "=" * 70 + "\n")
+    print("\n" + "="*70)
+    print("COMPLETE")
+    print("="*70)
+    print(f"\nFinal Results:")
+    print(f"  Model: {model_type.upper()}")
+    print(f"  Features: {len(selected_features)}")
+    print(f"  Discovery LOO-CV AUC: {model_data['loo_auc']:.3f}")
+    print(f"  Validation AUC: {val_auc:.3f}")
+    print(f"  Drop: {model_data['loo_auc'] - val_auc:.3f}")
     
     return {
-        'discovery_df': discovery_df,
-        'validation_df': validation_df,
-        'final_features': final_features,
-        'feature_sets': feature_sets,
-        'all_rankings': all_rankings,
-        'all_pca_results': all_pca_results
+        'model_data': model_data,
+        'val_predictions': val_predictions,
+        'val_auc': val_auc
     }
 
-# ============================================================================
-# Main execution
-# ============================================================================
 
 if __name__ == "__main__":
-    # Run Module 4 as a standalone script
-    results = run_module_4()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', type=str, default='rf', choices=['lasso', 'rf'],
+                        help='Model type: lasso or rf')
+    args = parser.parse_args()
     
-    print(f"\nBest feature set: {results['best_analysis']}")
-    print(f"Selected features shape: {results['final_features'].shape}")
-    print(f"\nReady for classification in Module 5!")
+    results = run_pipeline(model_type=args.model)

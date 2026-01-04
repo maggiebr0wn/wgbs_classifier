@@ -79,48 +79,42 @@ After systematic exploration, the best approach used **5 core cfDNA fragmentomic
 ```
 wgbs_classifier/
 │
-├── README.md                          # This file
-├── environment.yml                    # Conda environment
-│
-├── src/                               # Core pipeline modules
-│   ├── data_loader.py                # Module 0: Load & validate samples
-│   ├── qc.py                         # Module 1: Quality control
-│   ├── feature_extraction.py         # Module 2: Extract features from BAM
-│   ├── feature_selection.py          # Module 3: Feature selection (exploratory)
-│   └── config.py                     # Centralized configuration
-│
-├── notebooks/                         # Analysis notebooks
-│   ├── run_module4.ipynb             # ⭐ RECOMMENDED: Complete analysis
-│   ├── 01_setup_and_qc.ipynb         # Data loading & QC
-│   ├── 02_qc_analysis.ipynb          # Detailed QC analysis
-│   ├── 03_feature_extraction.ipynb   # Feature extraction
-│   ├── 04_exploratory_analysis.ipynb # Required assignment plots
-│   └── 06_run_classifier.ipynb       # Model training
+├── README.md                          
 │
 ├── scripts/
-│   └── run_pipeline.py               # Automated full pipeline
+│   └── run_pipeline.py                # Automated end-to-end 
+│
+├── src/                              
+│   ├── 01_data_loader.py             
+│   ├── 02_qc.py                      
+│   ├── 03_feature_extraction.py      
+│   ├── 04_classification.py          # RF classifier only
+│   └── config.py
+│
+├── notebooks/
+│   ├── complete_analysis.ipynb       # Clean walkthrough (best model)
+│   │
+│   └── exploratory/                  # Exploration journey
+│       ├── 01_setup_qc.ipynb        
+│       ├── 02_feature_extraction.ipynb
+│       ├── 03_model_exploration.ipynb     
+│       └── 04_final_validation.ipynb      
 │
 ├── data/
-│   ├── metadata/
-│   │   └── celfie_cfDNA_ss.csv      # Sample metadata
-│   ├── raw/                          # BAM files (not in repo)
-│   └── processed/                    # Generated data files
+│   └── processed/
 │       ├── sample_manifest.csv
 │       ├── qc_metrics.csv
-│       └── all_features.csv          # ~1,200 extracted features
+│       ├── all_features.csv
+│       └── final_predictions.csv    
 │
 └── results/
     ├── figures/
-    │   ├── rf_results/               # Final model visualizations
-    │   │   ├── roc_curves.png
-    │   │   └── performance_comparison.png
-    │   └── qc/                       # Quality control plots
-    ├── tables/
-    │   └── classification_metrics.csv
-    └── rf/                           # Final model outputs
-        ├── model.pkl
-        ├── summary.csv
-        └── validation_predictions.csv
+    │   ├── production/              
+    │   │   ├── required_plots/       # Assignment requirements
+    │   │   └── classification/       # Final model results
+    │   └── exploratory/              # From exploration notebooks
+    └── tables/
+        └── final_metrics.csv
 ```
 
 ---

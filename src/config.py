@@ -171,139 +171,56 @@ REQUIRED_PLOTS_DIR = FIGURES_DIR / "required_plots"
 BATCH_EFFECTS_FILE = RESULTS_DIR / "tables" / "batch_effects_summary.csv"
 
 # ============================================================================
-# MODULE 4: Feature Selection & Model Training
+# MODULE 4: Classification
 # ============================================================================
 """
-Module 4 Overview (REVISED):
-    Robust feature selection for n=8 discovery set using effect sizes and LASSO.
+Module 4 Overview:
+    Binary classification using final validated approach.
     
-    NEW Strategy:
-    1. Use ALL fragmentomics summary features (~20 features, NOT k-mers)
-       - Fragment size distributions, percentiles, ratios
-       - Fragment size category proportions
-       
-    2. Aggregate methylation to larger regions (500kb bins, ~93 bins)
-       - More robust estimates with more CpGs per bin
-       - Rank by effect size (Cohen's d)
-       - Select top 20-30 regions
-       
-    3. Feature selection via effect size ranking
-       - No p-values (meaningless with n=4 vs n=4)
-       - Calculate Cohen's d for all features
-       - Rank by absolute effect size
-       
-    4. Final model: LASSO with LOO-CV
-       - Strong L1 regularization
-       - Tune penalty via leave-one-out cross-validation
-       - Let LASSO select final feature subset (likely 5-15 features)
-    
-    Rationale:
-    - With n=8, we need stable, interpretable features
-    - Summary statistics > individual k-mers
-    - Larger bins > small bins
-    - Effect sizes > p-values
-    - Regularization > manual selection
+    Approach:
+    - 5 core fragmentomics features (selected through exploration)
+    - Random Forest classifier (max_depth=3, n_estimators=500)
+    - Train on discovery set (n=8)
+    - Validate on validation set (n=14)
     
 Input:
     - all_features.csv from Module 2
     
 Output:
-    - fragmentomics_summary_features.csv (all frag summaries)
-    - methylation_aggregated_features.csv (500kb bins)
-    - feature_rankings_by_effect_size.csv
-    - selected_features_for_training.csv (final feature set)
-    - loo_cv_results.csv (LOO performance for model selection)
-    - trained_lasso_model.pkl
+    - classification_metrics.csv (Precision, Recall, F1, AUC)
+    - validation_predictions.csv
+    - roc_curve.png, confusion_matrix.png
+    - trained_rf_model.pkl
 """
 
-# Discovery/Validation split
-DISCOVERY_BATCH = 'discovery'
-VALIDATION_BATCH = 'validation'
+# Final feature set (determined through exploratory analysis)
+FINAL_FEATURES = [
+    'frag_mean',
+    'frag_pct_short',
+    'frag_pct_long',
+    'frag_ratio_short_long',
+    'frag_pct_mononucleosomal'
+]
 
-# Feature filtering (for small n=8)
-MIN_SAMPLE_COVERAGE = 0.25  # Feature must have data in ≥25% of samples (≥2/8)
-MIN_VARIANCE_THRESHOLD = 0.0001  # Minimum variance to keep feature (very low threshold)
-
-# Methylation aggregation
-METHYLATION_AGGREGATION_SIZE = 500_000  # 500kb bins (~93 bins for chr21)
-MIN_CPG_PER_AGGREGATED_BIN = 50  # Require ≥50 CpGs for aggregated bin
-
-# Feature selection strategy
-N_TOP_METHYLATION_REGIONS = 10  # Top 30 methylation regions by effect size
-MIN_EFFECT_SIZE = 0.5  # Minimum Cohen's d to consider (small effect)
-
-# LASSO regularization (LOO-CV tuning)
-# IMPORTANT: With n=8, we need VERY strong regularization to prevent overfitting
-# Lower C = stronger penalty = more regularization
-LASSO_C_VALUES = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]  # Added stronger penalties
-LASSO_MAX_ITER = 5000  # Increase for convergence
-
-# Output files
-FEATURE_SELECTION_DIR = RESULTS_DIR / "feature_selection"
-FEATURE_RANKINGS_FILE = FEATURE_SELECTION_DIR / "feature_rankings_by_effect_size.csv"
-FRAGMENTOMICS_SUMMARY_FILE = FEATURE_SELECTION_DIR / "fragmentomics_summary_features.csv"
-METHYLATION_AGGREGATED_FILE = FEATURE_SELECTION_DIR / "methylation_aggregated_features.csv"
-SELECTED_FEATURES_FILE = FEATURE_SELECTION_DIR / "selected_features_for_training.csv"
-LOO_CV_RESULTS_FILE = FEATURE_SELECTION_DIR / "loo_cv_results.csv"
-TRAINED_LASSO_MODEL = FEATURE_SELECTION_DIR / "trained_lasso_model.pkl"
-
-# Legacy outputs (for backward compatibility)
-PCA_FIGURES_DIR = FIGURES_DIR / "pca"
-FEATURE_RANKINGS_DIR = RESULTS_DIR / "tables" / "feature_rankings"
-PCA_COMPARISON_FILE = RESULTS_DIR / "tables" / "pca_comparison_summary.csv"
-
-# ============================================================================
-# MODULE 5 & 6: Classification
-# ============================================================================
-
-"""
-Modules 5 & 6 Overview:
-
-Input:
-    
-Output:
-
-"""
-
-# Target column
-TARGET_COL = 'disease_status'
-POSITIVE_CLASS = 'als'
-
-# Metadata columns (excluded from training)
-METADATA_COLS = ['sample_id', 'disease_status', 'batch', 'age']
-
-# Model choice: 'logistic' or 'random_forest'
-CLASSIFIER_TYPE = 'logistic'
-
-# Logistic Regression params
-LOGREG_PARAMS = {
-    'penalty': 'l1',        # L1 for feature sparsity
-    'solver': 'liblinear',
-    'C': 1.0,
-    'max_iter': 1000,
-    'class_weight': 'balanced'
-}
-
-# Random Forest params (conservative for small n)
-RF_PARAMS = {
+# Random Forest parameters (validated in exploration)
+RF_PARAMS_FINAL = {
     'n_estimators': 500,
     'max_depth': 3,
-    'min_samples_leaf': 2,
+    'min_samples_split': 2,
+    'min_samples_leaf': 1,
+    'max_features': 'sqrt',
     'random_state': 42,
-    'class_weight': 'balanced'
+    'class_weight': 'balanced',
+    'n_jobs': -1
 }
 
 # Output paths
-CLASSIFIER_DIR = RESULTS_DIR / 'classification'
-TRAINED_MODEL_FILE = CLASSIFIER_DIR / 'trained_model.joblib'
-TRAIN_FEATURES_FILE = CLASSIFIER_DIR / 'training_features.csv'
-
-# ============================================================================
-# Module 4 & 6 outputs
-# ============================================================================
-TRAINING_PCA_FILE = RESULTS_DIR / 'training_pca_features.csv'    # Module 4 → Module 5
-VALIDATION_FEATURES_FILE = RESULTS_DIR / 'validation_features.csv'  # Module 4 → Module 6
-PCA_PICKLE = RESULTS_DIR / 'discovery_pca_objects.pkl'           # Module 4 → Module 6
+CLASSIFICATION_DIR = RESULTS_DIR / 'classification'
+CLASSIFICATION_METRICS_FILE = CLASSIFICATION_DIR / 'classification_metrics.csv'
+VALIDATION_PREDICTIONS_FILE = CLASSIFICATION_DIR / 'validation_predictions.csv'
+TRAINED_RF_MODEL_FILE = CLASSIFICATION_DIR / 'trained_rf_model.pkl'
+ROC_CURVE_FILE = FIGURES_DIR / 'classification' / 'roc_curve.png'
+CONFUSION_MATRIX_FILE = FIGURES_DIR / 'classification' / 'confusion_matrix.png'
 
 
 # ============================================================================

@@ -22,14 +22,9 @@ conda activate wgbs_classifier
 python -c "import pysam, pandas, sklearn; print('✓ Installation successful')"
 ```
 
-### Run Complete Pipeline
+### Run Complete Pipeline (automated)
 ```bash
-# Option 1: Run full pipeline (automated)
 python scripts/run_pipeline.py
-
-# Option 2: Interactive analysis (recommended for first review)
-jupyter notebook notebooks/run_module4.ipynb
-```
 
 ---
 

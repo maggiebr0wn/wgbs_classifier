@@ -171,16 +171,16 @@ REQUIRED_PLOTS_DIR = FIGURES_DIR / "required_plots"
 BATCH_EFFECTS_FILE = RESULTS_DIR / "tables" / "batch_effects_summary.csv"
 
 # ============================================================================
-# MODULE 4: Classification
+# MODULE 4: Classification (Production)
 # ============================================================================
 """
 Module 4 Overview:
     Binary classification using final validated approach.
     
-    Approach:
-    - 5 core fragmentomics features (selected through exploration)
-    - Random Forest classifier (max_depth=3, n_estimators=500)
-    - Train on discovery set (n=8)
+    Final Approach (from exploratory analysis):
+    - 23 combined features (17 fragmentomics + 6 methylation summaries)
+    - XGBoost classifier
+    - Train on discovery (n=8)
     - Validate on validation set (n=14)
     
 Input:
@@ -190,27 +190,32 @@ Output:
     - classification_metrics.csv (Precision, Recall, F1, AUC)
     - validation_predictions.csv
     - roc_curve.png, confusion_matrix.png
-    - trained_rf_model.pkl
+    - trained_xgb_model.pkl
 """
 
-# Final feature set (determined through exploratory analysis)
-FINAL_FEATURES = [
-    'frag_mean',
-    'frag_pct_short',
-    'frag_pct_long',
-    'frag_ratio_short_long',
-    'frag_pct_mononucleosomal'
+# Final feature set (23 combined features)
+FRAGMENTOMICS_SUMMARY = [
+    'frag_mean', 'frag_median', 'frag_std', 'frag_iqr', 'frag_cv',
+    'frag_q25', 'frag_q50', 'frag_q75', 'frag_skewness', 'frag_kurtosis',
+    'frag_pct_very_short', 'frag_pct_short', 'frag_pct_mononucleosomal',
+    'frag_pct_dinucleosomal', 'frag_pct_long',
+    'frag_ratio_short_long', 'frag_ratio_mono_di'
 ]
 
-# Random Forest parameters (validated in exploration)
-RF_PARAMS_FINAL = {
-    'n_estimators': 500,
-    'max_depth': 3,
-    'min_samples_split': 2,
-    'min_samples_leaf': 1,
-    'max_features': 'sqrt',
+METHYLATION_SUMMARY = [
+    'meth_mean_cpg', 'meth_median_cpg', 'meth_std_cpg',
+    'meth_pct_high', 'meth_pct_low', 'meth_pct_intermediate',
+    'regional_meth_mean', 'regional_meth_median', 'regional_meth_std'
+]
+
+FINAL_FEATURES = FRAGMENTOMICS_SUMMARY + METHYLATION_SUMMARY
+
+# XGBoost parameters (validated in exploration)
+FINAL_MODEL_PARAMS = {
+    'max_depth': 2,
+    'learning_rate': 0.1,
+    'n_estimators': 100,
     'random_state': 42,
-    'class_weight': 'balanced',
     'n_jobs': -1
 }
 
@@ -218,7 +223,7 @@ RF_PARAMS_FINAL = {
 CLASSIFICATION_DIR = RESULTS_DIR / 'classification'
 CLASSIFICATION_METRICS_FILE = CLASSIFICATION_DIR / 'classification_metrics.csv'
 VALIDATION_PREDICTIONS_FILE = CLASSIFICATION_DIR / 'validation_predictions.csv'
-TRAINED_RF_MODEL_FILE = CLASSIFICATION_DIR / 'trained_rf_model.pkl'
+TRAINED_MODEL_FILE = CLASSIFICATION_DIR / 'trained_xgb_model.pkl'
 ROC_CURVE_FILE = FIGURES_DIR / 'classification' / 'roc_curve.png'
 CONFUSION_MATRIX_FILE = FIGURES_DIR / 'classification' / 'confusion_matrix.png'
 

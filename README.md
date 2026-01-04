@@ -11,7 +11,7 @@ Binary classification of Amyotrophic Lateral Sclerosis (ALS) patients from healt
 ### Installation & Setup
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/maggiebr0wn/wgbs_classifier.git
 cd wgbs_classifier
 
 # Create environment

@@ -102,12 +102,15 @@ wgbs_classifier/
 │       └── 04_final_validation.ipynb      
 │
 ├── data/
-│   └── processed/
-│       ├── sample_manifest.csv
-│       ├── qc_metrics.csv
-│       ├── all_features.csv
-│       └── final_predictions.csv    
-│
+│   ├── processed/
+│   │   ├── sample_manifest.csv
+│   │   ├── qc_metrics.csv
+│   │   ├── all_features.csv
+│   │   └── final_predictions.csv    
+│   ├── metadata/
+│   │   └── celfie_cfDNA_ss.csv
+│   └── raw/                          # bam and bam.bai files
+│         
 └── results/
     ├── figures/
     │   ├── production/              

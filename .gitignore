@@ -34,3 +34,13 @@ Thumbs.db
 venv/
 env/
 .env
+
+# Keep directories but ignore contents
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+results/*
+!results/.gitkeep
+models/*.pkl
+models/*.joblib

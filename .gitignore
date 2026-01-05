@@ -35,3 +35,11 @@ env/
 # Keep directories but ignore contents
 data/raw/*
 !data/raw/.gitkeep
+
+# Exception: Track important figures for README
+!results/figures/required_plots/
+!results/figures/required_plots/*.png
+!results/figures/classification/
+!results/figures/classification/*.png
+!results/figures/validation/
+!results/figures/validation/*.png

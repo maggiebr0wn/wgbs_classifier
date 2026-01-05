@@ -127,22 +127,6 @@ This pattern suggests:
 - The combination of **shorter and more uniform cfDNA fragments in ALS** may reflect a distinct pathological cfDNA signal that is more consistent in its fragmentation characteristics than the mixed background seen in controls.
 
 Overall, this pattern aligns with established cfDNA biology: cfDNA size profiles depend on **nucleosome positioning, chromatin accessibility, and cell‑type‑specific cleavage processes**, and disease‑specific contributions can shift and reshape these distributions.
-
-## 🧬 Bonus Discovery: ALS-Enriched Differentially Methylated Regions (DMRs) on Chromosome 21
-
-High-resolution (1 kb) analysis identified **ALS-specific hypermethylation** at multiple loci overlapping genes implicated in neuronal and glial function, suggesting altered chromatin states in disease-relevant cell types. These DMRs complement the fragmentomics findings: **hypermethylation may reflect compact chromatin and contribute to uniform cfDNA fragmentation.**
-
-| Genomic Bin | Gene | Biological Relevance | ALS Methylation Pattern | Key Insights / Literature |
-|------------|------|-------------------|------------------------|---------------------------|
-| **chr21:45,073–45,074 kb** | **ADARB1** | RNA-editing enzyme critical for neuronal adenosine (A) to inosine (I) editing | Hypermethylated | Altered ADAR2 function reported in C9orf72 ALS/FTD; may indicate disrupted RNA processing ([PubMed 30945056](https://pubmed.ncbi.nlm.nih.gov/30945056/)) |
-| **chr21:33,025–33,026 kb** | **OLIG2** | Master TF for oligodendrocyte lineage & motor neuron specification | Hypermethylated | Suggests altered oligodendrocyte/motor neuron cfDNA contributions; glial involvement in ALS/FTD ([PMC10995329](https://pmc.ncbi.nlm.nih.gov/articles/PMC10995329/)) |
-| **chr21:37,073–37,074 kb** | **TTC3** | Protein interaction networks & stress response | Hypermethylated | Reflects stress-associated chromatin states; may indicate proteostasis challenges in vulnerable neurons/glia ([PMC5411428](https://pmc.ncbi.nlm.nih.gov/articles/PMC5411428/)) |
-
-### **Interpretation:**  
-- ALS cfDNA shows **hypermethylation at loci linked to neuronal and glial function**, consistent with altered chromatin organization in patholigically relavant cell types.  
-- Supports the fragmentomics observation of **uniform, compact cfDNA fragments**: compact chromatin regions yield more homogeneous cfDNA.  
-- Highlights the potential of integrating **fragment size and methylation signals** for detecting ALS-specific cfDNA patterns.
-
 ---
 
 ## 🔍 Approach & Model Evolution
@@ -170,6 +154,21 @@ With only **8 training samples**, model simplicity is statistically appropriate:
 - This is a **biologically interpretable biomarker**
 
 **Trade-off:** Model prioritizes sensitivity (100%, catches all ALS) over specificity (50%, some controls misclassified). For a fatal neurodegenerative disease, this may be clinically appropriate.
+
+## 🧬 Bonus Discovery: ALS-Enriched Differentially Methylated Regions (DMRs) on Chromosome 21
+
+High-resolution (1 kb) analysis identified **ALS-specific hypermethylation** at multiple loci overlapping genes implicated in neuronal and glial function, suggesting altered chromatin states in disease-relevant cell types. These DMRs complement the fragmentomics findings: **hypermethylation may reflect compact chromatin and contribute to uniform cfDNA fragmentation.**
+
+| Genomic Bin | Gene | Biological Relevance | ALS Methylation Pattern | Key Insights / Literature |
+|------------|------|-------------------|------------------------|---------------------------|
+| **chr21:45,073–45,074 kb** | **ADARB1** | RNA-editing enzyme critical for neuronal adenosine (A) to inosine (I) editing | Hypermethylated | Altered ADAR2 function reported in C9orf72 ALS/FTD; may indicate disrupted RNA processing ([PubMed 30945056](https://pubmed.ncbi.nlm.nih.gov/30945056/)) |
+| **chr21:33,025–33,026 kb** | **OLIG2** | Master TF for oligodendrocyte lineage & motor neuron specification | Hypermethylated | Suggests altered oligodendrocyte/motor neuron cfDNA contributions; glial involvement in ALS/FTD ([PMC10995329](https://pmc.ncbi.nlm.nih.gov/articles/PMC10995329/)) |
+| **chr21:37,073–37,074 kb** | **TTC3** | Protein interaction networks & stress response | Hypermethylated | Reflects stress-associated chromatin states; may indicate proteostasis challenges in vulnerable neurons/glia ([PMC5411428](https://pmc.ncbi.nlm.nih.gov/articles/PMC5411428/)) |
+
+### **Interpretation:**  
+- ALS cfDNA shows **hypermethylation at loci linked to neuronal and glial function**, consistent with altered chromatin organization in patholigically relavant cell types.  
+- Supports the fragmentomics observation of **uniform, compact cfDNA fragments**: compact chromatin regions yield more homogeneous cfDNA.  
+- Highlights the potential of integrating **fragment size and methylation signals** for detecting ALS-specific cfDNA patterns.
 
 ---
 

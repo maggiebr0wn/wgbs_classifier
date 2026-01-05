@@ -35,5 +35,3 @@ env/
 # Keep directories but ignore contents
 data/raw/*
 !data/raw/.gitkeep
-models/*.pkl
-models/*.joblib

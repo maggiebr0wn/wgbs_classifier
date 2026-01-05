@@ -223,10 +223,10 @@ wgbs_classifier/
    - Output: `data/processed/qc_metrics.csv`, QC plots
 
 3. **Module 2: Feature Extraction** (`src/feature_extraction.py`)
-   - Extract ~1,200 fragmentomics & methylation features
+   - Extract fragmentomics & methylation features
      - 17 fragmentomics summary statistics
      - 256 4-mer end motifs
-     - ~467 regional methylation bins (100 kb)
+     - ~46,700 regional methylation bins (1 kb)
      - 6 global methylation summaries
    - Output: `data/processed/all_features.csv`
 

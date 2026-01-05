@@ -22,7 +22,13 @@ conda activate wgbs_classifier
 python -c "import pysam, pandas, sklearn; print('✓ Installation successful')"
 ```
 
-### Run Complete Pipeline (automated)
+### Add raw data and metadata
+```bash
+mv <path to bam and bai files>/*bam* wgbs_classifier/data/raw
+mv <path to metadata file>/celfie_cfDNA_ss.csv wgbs_classifier/data/metadata
+```
+
+### Run complete pipeline (automated)
 ```bash
 python scripts/run_pipeline.py
 ```

@@ -37,7 +37,6 @@ pip install joblib>=1.3
 ### Add raw data and metadata
 ```bash
 # cd wgbs_classifier if not there already
-mkdir data/raw
 mv <path to bam and bai files>/*bam* ./data/raw
 mv <path to metadata file>/celfie_cfDNA_ss.csv ./data/metadata
 ```
@@ -75,8 +74,8 @@ python scripts/run_pipeline.py
 <td width="80%">
 
 <p align="center">
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="53%" />
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="37%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="52%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="38%" />
 </p>
 
 </td>

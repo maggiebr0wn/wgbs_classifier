@@ -171,7 +171,7 @@ REQUIRED_PLOTS_DIR = FIGURES_DIR / "required_plots"
 BATCH_EFFECTS_FILE = RESULTS_DIR / "tables" / "batch_effects_summary.csv"
 
 # ============================================================================
-# MODULE 4: Classification (Production)
+# MODULE 4: Classification
 # ============================================================================
 """
 Module 4 Overview:

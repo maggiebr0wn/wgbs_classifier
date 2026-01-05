@@ -206,12 +206,11 @@ wgbs_classifier/
    - Validate on held-out test set
    - Output: Classification metrics, trained model, predictions
 
-6. **Module 5: Feature Interpretation** (`notebooks/05_final_validation.ipynb`)
+6. **Post-Hoc: Feature Interpretation (not automated)** (`notebooks/05_final_validation.ipynb`)
    - XGBoost feature importance analysis
-   - Correlation structure among features
+   - Correlation among features
    - Biological interpretation of results
    - Output: Feature correlation plots, decision boundary visualizations
-
 ---
 
 ## 🔍 Data Overview
@@ -270,18 +269,38 @@ MIN_FRAGMENT_SIZE = 50                # Minimum fragment size (bp)
 MAX_FRAGMENT_SIZE = 1000              # Maximum fragment size (bp)
 BISULFITE_CONVERSION_THRESHOLD = 0.99 # 99% conversion required
 
-# Final model features (Approach 2)
+# Final model features
 FRAGMENTOMICS_SUMMARY = [
-    'frag_mean', 'frag_median', 'frag_std', 'frag_iqr', 'frag_cv',
-    'frag_q25', 'frag_q50', 'frag_q75', 'frag_skewness', 'frag_kurtosis',
-    'frag_pct_very_short', 'frag_pct_short', 'frag_pct_mononucleosomal',
-    'frag_pct_dinucleosomal', 'frag_pct_long',
-    'frag_ratio_short_long', 'frag_ratio_mono_di'
+    "frag_mean",               # Mean fragment size
+    "frag_median",             # Median fragment size
+    "frag_std",                # Standard deviation of fragment sizes
+    "frag_iqr",                # Interquartile range
+    "frag_cv",                 # Coefficient of variation
+
+    "frag_q25",                # 25th percentile
+    "frag_q50",                # 50th percentile (median, redundant)
+    "frag_q75",                # 75th percentile
+
+    "frag_skewness",           # Skewness of fragment size distribution
+    "frag_kurtosis",           # Kurtosis of fragment size distribution
+
+    "frag_pct_very_short",     # % very short fragments
+    "frag_pct_short",          # % short fragments
+    "frag_pct_mononucleosomal",# % mono-nucleosomal fragments
+    "frag_pct_dinucleosomal",  # % di-nucleosomal fragments
+    "frag_pct_long",           # % long fragments
+
+    "frag_ratio_short_long",   # Ratio of short to long fragments
+    "frag_ratio_mono_di",      # Ratio of mono- to di-nucleosomal fragments
 ]
 
 METHYLATION_SUMMARY = [
-    'meth_mean_cpg', 'meth_pct_high', 'meth_pct_low', 
-    'meth_pct_intermediate', 'regional_meth_mean', 'regional_meth_std'
+    "meth_mean_cpg",           # Global mean CpG methylation
+    "meth_std",                # Global CpG methylation std dev
+    "meth_pct_high",           # % highly methylated CpGs
+    "meth_pct_low",            # % lowly methylated CpGs
+    "meth_pct_intermediate",   # % intermediate methylated CpGs
+    "regional_meth_mean",      # Mean methylation in regional bins
 ]
 ```
 

@@ -58,7 +58,7 @@ python scripts/run_pipeline.py
 | **F1-Score** | 0.842 |
 
 </td>
-<td width="60%">
+<td width="40%">
 
 <p align="center">
   <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="52%" />

@@ -59,12 +59,12 @@ python scripts/run_pipeline.py
 </p>
 
 <p align="center">
-    <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/validation/frag_mean_analysis.png">
+    <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/validation/frag_mean_analysis.png" width="90%">
 </p>
 
 **Model:** XGBoost classifier using combined fragmentomics + methylation features
 
-**Key Finding:** A single feature—fragment size standard deviation (`frag_std`)—achieves 100% sensitivity in detecting ALS cases. Lower cfDNA fragment size variability in ALS reflects a homogeneous disease-specific fragmentation signature, likely from dominant motor neuron/glial cell death overwhelming the normal heterogeneous cfDNA background.
+**Key Finding:** A single feature—fragment size standard deviation (`frag_std`)—achieves 100% sensitivity in detecting ALS cases. Lower cfDNA fragment size variability in ALS reflects a homogeneous disease-specific fragmentation signature, likely from dominant motor neuron/glial cell death overwhelming the normal heterogeneous cfDNA background. Strong correlation of fragment size standard deviation with mean fragment size.
 
 ---
 

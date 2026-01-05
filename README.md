@@ -28,10 +28,16 @@ mv <path to bam and bai files>/*bam* wgbs_classifier/data/raw
 mv <path to metadata file>/celfie_cfDNA_ss.csv wgbs_classifier/data/metadata
 ```
 
-### Run complete pipeline (automated)
+### Run complete pipeline end-to-end
 ```bash
 python scripts/run_pipeline.py
 ```
+### Tested Configuration
+- **OS**: macOS Sequoia v15.6.1
+- **Processor**: 2.3 GHz 8-Core Intel Core i9
+- **RAM**: 16 GB
+- **Python**: Python 3.10.19
+- **Runtime**: ~50 seconds (complete pipeline, 22 samples, chr21 only)
 ---
 
 ## 📊 Key Results

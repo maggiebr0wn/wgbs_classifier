@@ -215,9 +215,12 @@ FRAGMENTOMICS_SUMMARY = [
 ]
 
 METHYLATION_SUMMARY = [
-    'meth_mean_cpg', 'meth_median_cpg', 'meth_std_cpg',
-    'meth_pct_high', 'meth_pct_low', 'meth_pct_intermediate',
-    'regional_meth_mean', 'regional_meth_median', 'regional_meth_std'
+    'meth_mean_cpg',          # Global mean
+    'meth_std',               # Global std
+    'meth_pct_high',          # % highly methylated CpGs
+    'meth_pct_low',           # % lowly methylated CpGs
+    'meth_pct_intermediate',  # % intermediate methylated CpGs
+    'regional_meth_mean'      # Mean of regional bins
 ]
 
 FINAL_FEATURES = FRAGMENTOMICS_SUMMARY + METHYLATION_SUMMARY

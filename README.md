@@ -46,7 +46,7 @@ python scripts/run_pipeline.py
 
 <table>
 <tr>
-<td width="40%">
+<td width="20%">
 
 | Metric | Value |
 |--------|-------|

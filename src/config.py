@@ -140,6 +140,18 @@ METHYLATION_FEATURES_FILE = PROCESSED_DIR / "methylation_features.csv"
 ALL_FEATURES = PROCESSED_DIR / "all_features.csv"
 
 # ============================================================================
+# BATCH DEFINITIONS (for train/test splits)
+# ============================================================================
+"""
+Batch definitions for train/test splitting across all modules.
+- Discovery: Training set (n=8)
+- Validation: Test set (n=14)
+"""
+
+DISCOVERY_BATCH = "discovery"
+VALIDATION_BATCH = "validation"
+
+# ============================================================================
 # MODULE 3: Visualization & Batch Effects
 # ============================================================================
 """

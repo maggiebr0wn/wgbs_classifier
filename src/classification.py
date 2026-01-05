@@ -304,7 +304,7 @@ def run_module_4():
     print("=" * 70)
     print(f"\nFinal Model: XGBoost with {len(FINAL_FEATURES)} features")
     print(f"  - Fragmentomics summary: 17 features")
-    print(f"  - Methylation summary: 6 features")
+    print(f"  - Methylation summary: {len(FINAL_FEATURES) - 17} features")
     print(f"\nValidation Metrics:")
     print(f"  AUC:        {results['metrics']['auc']:.3f}")
     print(f"  Accuracy:   {results['metrics']['accuracy']:.3f}")

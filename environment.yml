@@ -1,39 +1,36 @@
 name: wgbs_classifier
 channels:
   - conda-forge
-  - bioconda
-  - defaults
-description: Environment for wgbs_classifier - ALS cfDNA WGBS classification pipeline
 
 dependencies:
   # Python
   - python=3.10
-  
-  # Bioinformatics tools
-  - pysam>=0.22.0
-  
+
+  # Bioinformatics
+  - pysam>=0.22
+
   # Data science
-  - pandas>=2.0.0
-  - numpy>=1.24.0
-  - scipy>=1.10.0
-  
+  - pandas>=2.0
+  - numpy>=1.24
+  - scipy>=1.10
+
   # Machine learning
-  - scikit-learn>=1.3.0
-  - xgboost>=2.0.0
-  
+  - scikit-learn>=1.3
+  - xgboost>=2.0
+
   # Visualization
-  - matplotlib>=3.7.0
-  - seaborn>=0.12.0
-  
+  - matplotlib>=3.7
+  - seaborn>=0.12
+
   # Jupyter
   - jupyter
   - notebook
   - ipykernel
-  
+
   # Utilities
-  - tqdm>=4.65.0
-  
-  # Pip packages (if needed)
+  - tqdm>=4.65
+
+  # Pip packages
   - pip
   - pip:
-    - joblib>=1.3.0
+      - joblib>=1.3

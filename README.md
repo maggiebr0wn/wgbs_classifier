@@ -54,7 +54,7 @@ python scripts/run_pipeline.py
 | **F1-Score** | 0.842 |
 
 <p align="center">
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="45%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="45%" style="height: auto; max-height: 500px;" />
   <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="45%" />
 </p>
 

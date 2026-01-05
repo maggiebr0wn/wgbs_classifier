@@ -121,14 +121,16 @@ FRAGMENT_SIZE_CATEGORIES = {
     'long': (400, 1000)            # Tri+ nucleosome or genomic DNA
 }
 
-# Genomic binning (GOLD STANDARD - 100 kb resolution)
-FRAGMENTOMICS_BIN_SIZE = 100_000  # 100 kb bins for coverage analysis
-METHYLATION_BIN_SIZE = 100_000    # 100 kb bins for regional methylation
-MIN_CPG_PER_BIN = 20              # Minimum CpG sites for robust methylation estimate
+# Genomic binning (GOLD STANDARD - 1 kb resolution)
+FRAGMENTOMICS_BIN_SIZE = 1_000  # 1 kb bins for coverage analysis
+METHYLATION_BIN_SIZE = 1_000    # 1 kb bins for regional methylation
+MIN_CPG_PER_BIN = 5              # Minimum CpG sites for robust methylation estimate
 
-# For chr21 (~46.7 Mb with 100 kb bins):
-#   Expected bins: ~467
-#   Expected CpGs per bin: ~1,000-10,000 (robust estimates)
+# For chr21 (~46.7 Mb with 1 kb bins):
+#   Expected bins: ~46,700
+#   Expected CpGs per bin: ~10-100 (many bins will have insufficient coverage)
+#   Note: 1 kb resolution creates sparse features - most bins lack MIN_CPG_PER_BIN
+#         and will be NaN. Use 10 kb bins for better coverage, or 100 kb for robust estimates.
 
 # Methylation distribution thresholds
 HIGHLY_METHYLATED_THRESHOLD = 0.8   # CpG methylation > 80%

@@ -75,7 +75,7 @@ python scripts/run_pipeline.py
 
 <p align="center">
   <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="58%" />
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="40%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="39%" />
 </p>
 
 </td>

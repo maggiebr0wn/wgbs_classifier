@@ -14,18 +14,32 @@ Binary classification of Amyotrophic Lateral Sclerosis (ALS) patients from healt
 git clone https://github.com/maggiebr0wn/wgbs_classifier.git
 cd wgbs_classifier
 
-# Create environment
-conda env create -f environment.yml
+# 1. Create base environment
+conda create -n wgbs_classifier python=3.10 -y
 conda activate wgbs_classifier
 
-# Verify installation
-python -c "import pysam, pandas, numpy, scipy, sklearn, xgboost, matplotlib, seaborn; print('✓ Installation successful')"
+# 2. Bioinformatics + data science
+conda install -c conda-forge pysam pandas numpy scipy tqdm -y
+
+# 3. Machine learning
+conda install -c conda-forge scikit-learn xgboost -y
+
+# 4. Visualization
+conda install -c conda-forge matplotlib seaborn -y
+
+# 5. Jupyter
+conda install -c conda-forge jupyter notebook ipykernel -y
+
+# 6. Pip packages
+pip install joblib>=1.3
 ```
 
 ### Add raw data and metadata
 ```bash
-mv <path to bam and bai files>/*bam* wgbs_classifier/data/raw
-mv <path to metadata file>/celfie_cfDNA_ss.csv wgbs_classifier/data/metadata
+# cd wgbs_classifier if not there already
+mkdir data/raw
+mv <path to bam and bai files>/*bam* ./data/raw
+mv <path to metadata file>/celfie_cfDNA_ss.csv ./data/metadata
 ```
 
 ### Run complete pipeline end-to-end

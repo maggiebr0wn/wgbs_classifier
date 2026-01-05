@@ -126,7 +126,7 @@ This pattern suggests:
 - In healthy individuals, cfDNA reflects a mixture of cell types and physiological cell turnover, leading to **broader size variability**.  
 - The combination of **shorter and more uniform cfDNA fragments in ALS** may reflect a distinct pathological cfDNA signal that is more consistent in its fragmentation characteristics than the mixed background seen in controls.
 
-Overall, this pattern aligns with established cfDNA biology: cfDNA size profiles depend on **nucleosome positioning, chromatin accessibility, and cell‑type‑specific cleavage processes**, and disease‑specific contributions can shift and reshape these distributions.
+#### Overall, this pattern aligns with established cfDNA biology: cfDNA size profiles depend on **nucleosome positioning, chromatin accessibility, and cell‑type‑specific cleavage processes**, and disease‑specific contributions can shift and reshape these distributions.
 ---
 
 ## 🔍 Approach & Model Evolution

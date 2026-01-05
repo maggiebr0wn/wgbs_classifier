@@ -212,7 +212,7 @@ wgbs_classifier/
 
 ---
 
-**Pipeline Steps:**
+## **Pipeline Steps:**
 
 1. **Module 0: Data Loading** (`src/data_loader.py`)
    - Load metadata, verify BAM files

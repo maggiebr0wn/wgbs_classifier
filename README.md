@@ -70,7 +70,7 @@ python scripts/run_pipeline.py
 </table>
 
 <p align="center">
-    <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/validation/frag_mean_analysis.png" width="90%">
+    <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/validation/frag_mean_analysis.png" width="95%">
 </p>
 
 **Model:** XGBoost classifier using combined fragmentomics + methylation features

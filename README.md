@@ -121,19 +121,14 @@ High-resolution (1 kb) analysis identified **ALS-specific hypermethylation** at 
 
 | Genomic Bin | Gene | Biological Relevance | ALS Methylation Pattern | Key Insights / Literature |
 |------------|------|-------------------|------------------------|---------------------------|
-| **chr21:45,073–45,074 kb** | **ADARB1** | RNA-editing enzyme critical for neuronal A→I editing | Hypermethylated | Altered ADAR2 function reported in C9orf72 ALS/FTD; may indicate disrupted RNA processing ([PubMed 30945056](https://pubmed.ncbi.nlm.nih.gov/30945056/)) |
+| **chr21:45,073–45,074 kb** | **ADARB1** | RNA-editing enzyme critical for neuronal adenosine (A) to inosine (I) editing | Hypermethylated | Altered ADAR2 function reported in C9orf72 ALS/FTD; may indicate disrupted RNA processing ([PubMed 30945056](https://pubmed.ncbi.nlm.nih.gov/30945056/)) |
 | **chr21:33,025–33,026 kb** | **OLIG2** | Master TF for oligodendrocyte lineage & motor neuron specification | Hypermethylated | Suggests altered oligodendrocyte/motor neuron cfDNA contributions; glial involvement in ALS/FTD ([PMC10995329](https://pmc.ncbi.nlm.nih.gov/articles/PMC10995329/)) |
 | **chr21:37,073–37,074 kb** | **TTC3** | Protein interaction networks & stress response | Hypermethylated | Reflects stress-associated chromatin states; may indicate proteostasis challenges in vulnerable neurons/glia ([PMC5411428](https://pmc.ncbi.nlm.nih.gov/articles/PMC5411428/)) |
 
-**Interpretation:**  
-- ALS cfDNA shows **hypermethylation at loci linked to neuronal and glial function**, consistent with altered chromatin organization.  
+### **Interpretation:**  
+- ALS cfDNA shows **hypermethylation at loci linked to neuronal and glial function**, consistent with altered chromatin organization in patholigically relavant cell types.  
 - Supports the fragmentomics observation of **uniform, compact cfDNA fragments**: compact chromatin regions yield more homogeneous cfDNA.  
 - Highlights the potential of integrating **fragment size and methylation signals** for detecting ALS-specific cfDNA patterns.
-
-<p align="center">
-  <img src="https://via.placeholder.com/800x150.png?text=Chromosome+21+with+DMRs+mapped+to+ADARB1,+OLIG2,+TTC3" width="80%" alt="Chromosome 21 DMR schematic">
-</p>
-
 
 ---
 

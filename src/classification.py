@@ -215,7 +215,7 @@ def plot_roc_curve(y_true, y_pred_proba, auc):
     """Generate and save ROC curve."""
     fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
     
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(fpr, tpr, linewidth=2, label=f'XGBoost (AUC = {auc:.3f})')
     ax.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Random Classifier')
     ax.set_xlabel('False Positive Rate', fontsize=12)
@@ -233,7 +233,7 @@ def plot_roc_curve(y_true, y_pred_proba, auc):
 
 def plot_confusion_matrix(cm):
     """Generate and save confusion matrix plot."""
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(4, 4))
     
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,
                 xticklabels=['Control', 'ALS'],

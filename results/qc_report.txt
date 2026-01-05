@@ -1,0 +1,79 @@
+======================================================================
+QUALITY CONTROL REPORT
+======================================================================
+
+OVERALL SUMMARY
+----------------------------------------------------------------------
+Total samples: 22
+  ALS: 12
+  Control: 10
+  Discovery batch: 8
+  Validation batch: 14
+
+BISULFITE CONVERSION EFFICIENCY
+----------------------------------------------------------------------
+Mean conversion efficiency: 0.9941 (99.41%)
+Minimum conversion efficiency: 0.9748 (97.48%)
+Threshold: 0.9900 (99.00%)
+Samples below threshold: 2
+
+Samples with poor conversion:
+  - SRR13404380: 0.9748
+  - SRR13404383: 0.9828
+
+BATCH EFFECT ASSESSMENT
+----------------------------------------------------------------------
+Metrics with significant batch effects (p < 0.05): 2/8
+
+Significant batch effects:
+  - mean_fragment_size: p = 0.0064
+  - cpg_methylation_rate: p = 0.0240
+
+QC METRICS SUMMARY STATISTICS
+----------------------------------------------------------------------
+
+mean_mapq:
+  Mean: 38.32
+  Std: 0.11
+  Min: 38.12
+  Max: 38.51
+
+mapped_pct:
+  Mean: 100.00
+  Std: 0.00
+  Min: 100.00
+  Max: 100.00
+
+properly_paired_pct:
+  Mean: 100.00
+  Std: 0.00
+  Min: 100.00
+  Max: 100.00
+
+duplicate_rate:
+  Mean: 0.00
+  Std: 0.00
+  Min: 0.00
+  Max: 0.00
+
+mean_fragment_size:
+  Mean: 172.51
+  Std: 11.15
+  Min: 161.22
+  Max: 206.30
+
+conversion_efficiency:
+  Mean: 0.99
+  Std: 0.01
+  Min: 0.97
+  Max: 1.00
+
+======================================================================
+RECOMMENDED FILTERING CRITERIA
+======================================================================
+MAPQ >= 20
+Fragment size: 50-1000 bp
+Proper pairs only
+Exclude duplicates
+
+======================================================================

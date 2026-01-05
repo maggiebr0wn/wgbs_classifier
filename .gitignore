@@ -2,9 +2,6 @@
 data/raw/
 data/processed/
 
-# Results (reproducible from code)
-results/
-
 # Models (binary, reproducible)
 models/*.pkl
 models/*.joblib
@@ -38,9 +35,5 @@ env/
 # Keep directories but ignore contents
 data/raw/*
 !data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
-results/*
-!results/.gitkeep
 models/*.pkl
 models/*.joblib

@@ -19,7 +19,7 @@ conda env create -f environment.yml
 conda activate wgbs_classifier
 
 # Verify installation
-python -c "import pysam, pandas, sklearn; print('✓ Installation successful')"
+python -c "import pysam, pandas, numpy, scipy, sklearn, xgboost, matplotlib, seaborn; print('✓ Installation successful')"
 ```
 
 ### Add raw data and metadata

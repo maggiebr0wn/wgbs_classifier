@@ -44,6 +44,10 @@ python scripts/run_pipeline.py
 
 ### Classification Performance (Validation Set, n=14)
 
+<table>
+<tr>
+<td width="40%">
+
 | Metric | Value |
 |--------|-------|
 | **AUC** | **0.750** |
@@ -53,10 +57,17 @@ python scripts/run_pipeline.py
 | **Specificity** | 0.500 |
 | **F1-Score** | 0.842 |
 
+</td>
+<td width="60%">
+
 <p align="center">
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="53%" style="height: auto; max-height: 500px;" />
-  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="37%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/roc_curve.png" width="48%" />
+  <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/classification/confusion_matrix.png" width="48%" />
 </p>
+
+</td>
+</tr>
+</table>
 
 <p align="center">
     <img src="https://github.com/maggiebr0wn/wgbs_classifier/blob/main/results/figures/validation/frag_mean_analysis.png" width="90%">

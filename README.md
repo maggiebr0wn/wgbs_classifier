@@ -280,7 +280,7 @@ wgbs_classifier/
 
 ### Strengths & Clinical Potential
 1. **100% sensitivity** - Critical for fatal disease screening
-2. **Simple, interpretable biomarker** - Single measurement, no black box
+2. **Simple, interpretable biomarker** - Single measurement, no black box; scalable
 3. **Biologically plausible** - Reflects known cfDNA fragmentation biology
 4. **Robust feature** - Lower technical variability than methylation
 

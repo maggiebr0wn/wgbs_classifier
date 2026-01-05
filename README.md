@@ -159,15 +159,13 @@ wgbs_classifier/
 │         
 └── results/
     ├── classification/
-    │   ├── approach2_combined_xgboost.pkl  # Final model
-    │   └── classification_metrics.csv
+    │   └── approach2_combined_xgboost.pkl  # Final model
     ├── figures/
     │   ├── required_plots/            # Assignment requirements
     │   ├── classification/            # ROC curves, confusion matrices
     │   └── validation/                # Feature interpretation plots
     └── tables/
-        ├── feature_correlations.csv
-        └── xgboost_feature_importance.csv
+        └──batch_effects_summary.csv
 ```
 
 ---

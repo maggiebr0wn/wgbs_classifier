@@ -343,9 +343,7 @@ def extract_methylation_features(bam_path, sample_id, chromosome=CHROMOSOME):
     2. Regional methylation (N features, N = chr_length / bin_size)
        - Average CpG methylation per bin (100 kb bins)
        - Only bins with ≥20 CpG sites
-    
-    Total: ~475 features for chr21 with 100 kb bins
-    
+        
     Parameters
     ----------
     bam_path : str

@@ -261,7 +261,7 @@ def extract_fragmentomics_features(bam_path, sample_id, chromosome=CHROMOSOME):
             features['motif_gc_content'] = (gc_count / total_motifs) * 100
         
         # ====================================================================
-        # 3. COVERAGE PROFILE (100 KB BINS)
+        # 3. COVERAGE PROFILE (1 KB BINS)
         # ====================================================================
         
         n_bins = math.ceil(chr_length / FRAGMENTOMICS_BIN_SIZE)

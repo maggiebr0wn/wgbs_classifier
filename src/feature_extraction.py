@@ -457,7 +457,7 @@ def extract_methylation_features(bam_path, sample_id, chromosome=CHROMOSOME):
             features['meth_pct_intermediate'] = np.nan
         
         # ====================================================================
-        # 2. REGIONAL METHYLATION FEATURES (100 KB BINS)
+        # 2. REGIONAL METHYLATION FEATURES (1 KB BINS)
         # ====================================================================
         
         features['regional_meth_chr_length'] = chr_length

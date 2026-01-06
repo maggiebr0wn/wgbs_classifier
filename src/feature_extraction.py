@@ -118,10 +118,8 @@ def extract_fragmentomics_features(bam_path, sample_id, chromosome=CHROMOSOME):
        - GC content of motifs
     
     4. Coverage profile (N features, N = chr_length / bin_size)
-       - % of fragments starting in each bin (100 kb bins)
-    
-    Total: ~745 features for chr21 with 100 kb bins
-    
+       - % of fragments starting in each bin (1 kb bins)
+        
     Parameters
     ----------
     bam_path : str

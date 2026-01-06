@@ -31,7 +31,7 @@ conda install -c conda-forge matplotlib seaborn -y
 conda install -c conda-forge jupyter notebook ipykernel -y
 
 # 6. Pip packages
-pip install joblib>=1.3
+pip install joblib
 ```
 
 ### Add raw data and metadata

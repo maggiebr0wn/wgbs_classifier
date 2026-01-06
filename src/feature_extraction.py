@@ -14,9 +14,9 @@ Input:
     - BAM files
 
 Output:
-    - data/processed/fragmentomics_features.csv (~509 features)
-    - data/processed/methylation_features.csv (~475 features)
-    - data/processed/all_features.csv (~984 features total)
+    - data/processed/fragmentomics_features.csv 
+    - data/processed/methylation_features.csv 
+    - data/processed/all_features.csv 
 
 Functions:
     - get_chromosome_length(): Get chromosome length from BAM header
